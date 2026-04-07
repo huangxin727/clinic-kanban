@@ -592,7 +592,7 @@ export default function Kanban() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isAdmin || m.id === profile?.id ? (
+                        {isAdmin ? (
                           <button
                             title="点击切换状态（空闲/忙碌/离线）"
                             style={{
@@ -600,7 +600,7 @@ export default function Kanban() {
                               padding: '2px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                               whiteSpace: 'nowrap',
                             }}
-                            onClick={(e) => { e.stopPropagation(); if (isAdmin || m.id === profile?.id) toggleMemberStatus(m) }}
+                            onClick={(e) => { e.stopPropagation(); if (isAdmin) toggleMemberStatus(m) }}
                           >
                             {sc.label}
                           </button>
