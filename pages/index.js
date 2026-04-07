@@ -55,6 +55,7 @@ export default function Kanban() {
       return
     }
     setUser(getCurrentUser())
+    loadProfile(getCurrentUser())
   }, [])
 
   // 时钟

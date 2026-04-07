@@ -1,17 +1,22 @@
-import { getUserMember, getUser } from '@/lib/helpers'
+import { getUser } from '@/lib/helpers'
 import { findBy, KEYS, addToList } from '@/lib/db'
 
 export default async function handler(req, res) {
-  const member = await getUserMember(req)
-  if (!member) return res.status(401).json({ error: '未授权' })
-
+  // 先验证用户身份
   const user = await getUser(req)
+  if (!user) return res.status(401).json({ error: '未授权' })
 
   if (req.method === 'GET') {
+    // GET 时查找对应的 member
+    const { findBy: find } = await import('@/lib/db')
+    const member = await findBy(KEYS.MEMBERS, 'user_id', user.id)
+    if (!member) {
+      return res.json({ success: true, data: null, email: user.email })
+    }
     return res.json({
       success: true,
       data: member,
-      email: user?.email
+      email: user.email
     })
   }
 
@@ -19,10 +24,10 @@ export default async function handler(req, res) {
     const { name, role, color } = req.body
     if (!name) return res.status(400).json({ error: '请填写姓名' })
 
-    // 检查是否已存在
+    // 检查是否已存在 member
     const existing = await findBy(KEYS.MEMBERS, 'user_id', user.id)
     if (existing) {
-      return res.status(400).json({ error: 'Profile 已存在' })
+      return res.json({ success: true, data: existing })
     }
 
     // 检查是否是管理员邮箱
