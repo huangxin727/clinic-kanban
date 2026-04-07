@@ -1,7 +1,7 @@
-import { getUserMember } from '@/lib/helpers'
+import { cachedHandler, getUserMember } from '@/lib/helpers'
 import { getAll, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
 
-export default async function handler(req, res) {
+export default cachedHandler(async function handler(req, res) {
   const member = await getUserMember(req)
   if (!member) return res.status(401).json({ error: '未授权' })
 
@@ -11,11 +11,12 @@ export default async function handler(req, res) {
     const ticket = await findById(KEYS.TICKETS, id)
     if (!ticket) return res.status(404).json({ error: '工单不存在' })
 
-    // 关联 member 和 logs
-    const allMembers = await getAll(KEYS.MEMBERS)
+    // 并行获取 members 和 logs
+    const [allMembers, allLogs] = await Promise.all([
+      getAll(KEYS.MEMBERS),
+      getAll(KEYS.LOGS),
+    ])
     const m = allMembers.find(m => m.id === ticket.member_id)
-
-    const allLogs = await getAll(KEYS.LOGS)
     const logs = allLogs.filter(l => l.ticket_id === id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
     return res.json({
