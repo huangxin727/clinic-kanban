@@ -500,14 +500,19 @@ export default function Kanban() {
                                       const newServices = done
                                         ? svc.filter(x => x !== s)
                                         : [...svc, s]
+                                      // 乐观更新：直接更新本地状态
+                                      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices } : tk))
+                                      if (drawerTicket && drawerTicket.id === t.id) {
+                                        setDrawerTicket(prev => ({ ...prev, services: newServices }))
+                                      }
                                       try {
                                         await api(`/tickets/${t.id}`, {
                                           method: 'PUT',
                                           body: JSON.stringify({ services: newServices })
                                         })
-                                        refreshAll()
                                       } catch (err) {
                                         alert('更新失败: ' + err.message)
+                                        refreshAll() // 失败时回滚
                                       }
                                     }}
                                   >
@@ -685,15 +690,15 @@ export default function Kanban() {
                         : [...(drawerTicket.services || []), s]
                       // 乐观更新
                       setDrawerTicket({ ...drawerTicket, services: newServices })
+                      setTickets(prev => prev.map(tk => tk.id === drawerTicket.id ? { ...tk, services: newServices } : tk))
                       try {
                         await api(`/tickets/${drawerTicket.id}`, {
                           method: 'PUT',
                           body: JSON.stringify({ services: newServices })
                         })
-                        refreshAll()
                       } catch (err) {
                         alert('更新失败: ' + err.message)
-                        openDrawer(drawerTicket.id) // 回滚
+                        refreshAll() // 失败时回滚
                       }
                     }}
                     style={{
