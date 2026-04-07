@@ -340,7 +340,7 @@ export default function Kanban() {
     try {
       // 根据工单类型判断对应服务进度是否完成，自动标记状态
       const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
-      const payload = { ...form, services, status: autoDone ? 'done' : (form.status || 'inprogress') }
+      const payload = { ...form, services, ticket_date: getToday(), status: autoDone ? 'done' : (form.status || 'inprogress') }
       if (editMode) {
         await api(`/tickets/${form.id}`, {
           method: 'PUT',
