@@ -7,23 +7,6 @@ export default async function handler(req, res) {
 
   const date = req.query.date || new Date().toISOString().split('T')[0]
 
-  if (!member.is_admin) {
-    // 普通组员：只返回自己的统计
-    const tickets = await getAll(KEYS.TICKETS)
-    const myTickets = tickets.filter(t => t.member_id === member.id && t.ticket_date === date)
-
-    return res.json({
-      success: true,
-      data: {
-        total: myTickets.length,
-        inprogress: myTickets.filter(t => t.status === 'inprogress').length,
-        done: myTickets.filter(t => t.status === 'done').length,
-        urgent: myTickets.filter(t => t.status === 'urgent').length,
-      }
-    })
-  }
-
-  // 组长：返回全局统计 + 每人统计
   const tickets = await getAll(KEYS.TICKETS)
   const dateTickets = tickets.filter(t => t.ticket_date === date)
 

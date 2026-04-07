@@ -10,10 +10,8 @@ export default async function handler(req, res) {
 
     let tickets = await getAll(KEYS.TICKETS)
 
-    // 权限过滤：组员只能看自己的，组长看全部
-    if (!member.is_admin) {
-      tickets = tickets.filter(t => t.member_id === member.id)
-    } else if (member_id) {
+    // 所有人都能查看全部工单，组长可以按 member_id 筛选
+    if (member_id) {
       tickets = tickets.filter(t => t.member_id === member_id)
     }
 
