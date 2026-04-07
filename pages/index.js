@@ -16,22 +16,178 @@ const STATUS_MAP = {
   urgent: { label: '需跟进', cls: 'tag-urgent' },
 }
 
-const ALL_SERVICES = ['数据初始化', '医保对接', '系统培训', '上线验收']
-
-// 工单类型 → 对应的服务进度（勾选完成后自动标记为已完成）
-const TYPE_SERVICE_MAP = {
+// 默认值（后端未返回时使用）
+const DEFAULT_TYPE_MAP = {
+  init: { label: '数据初始化', cls: 'tag-init' },
+  training: { label: '培训', cls: 'tag-training' },
+  insurance: { label: '医保对接', cls: 'tag-insurance' },
+  followup: { label: '跟进', cls: 'tag-followup' },
+  other: { label: '其他', cls: 'tag-other' },
+}
+const DEFAULT_SERVICES = ['数据初始化', '医保对接', '系统培训', '上线验收']
+const DEFAULT_TYPE_SERVICE_MAP = {
   init: '数据初始化',
   training: '系统培训',
   insurance: '医保对接',
   followup: '上线验收',
-  // other: 无对应，不自动判断
+}
+
+// 根据 settings 动态生成配置
+function buildConfig(settings) {
+  const types = settings?.types || []
+  const services = settings?.services || DEFAULT_SERVICES
+
+  const typeMap = {}
+  const typeServiceMap = {}
+  types.forEach(t => {
+    typeMap[t.id] = { label: t.label, cls: t.cls || 'tag-other' }
+    if (t.service) typeServiceMap[t.id] = t.service
+  })
+
+  return { typeMap, services, typeServiceMap }
 }
 
 // 根据工单类型和服务进度判断是否应自动完成
-function shouldAutoDone(type, services) {
-  const target = TYPE_SERVICE_MAP[type]
+function shouldAutoDone(type, services, typeServiceMap) {
+  const target = typeServiceMap[type]
   if (!target) return false
   return Array.isArray(services) && services.includes(target)
+}
+
+// 设置面板组件
+function SettingsModal({ settings, onClose, onSave }) {
+  const [types, setTypes] = useState(settings?.types || [])
+  const [services, setServices] = useState(settings?.services || [])
+  const [newTypeName, setNewTypeName] = useState('')
+  const [newTypeService, setNewTypeService] = useState('')
+  const [newServiceName, setNewServiceName] = useState('')
+
+  const clsOptions = ['tag-init', 'tag-training', 'tag-insurance', 'tag-followup', 'tag-other']
+
+  const addType = () => {
+    if (!newTypeName.trim()) return alert('请填写类型名称')
+    const id = newTypeName.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '_').slice(0, 20) + '_' + Date.now().toString(36)
+    setTypes(prev => [...prev, { id, label: newTypeName.trim(), service: newTypeService, cls: 'tag-other' }])
+    setNewTypeName('')
+    setNewTypeService('')
+  }
+
+  const removeType = (id) => {
+    setTypes(prev => prev.filter(t => t.id !== id))
+  }
+
+  const updateType = (id, field, value) => {
+    setTypes(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
+  }
+
+  const addService = () => {
+    if (!newServiceName.trim()) return alert('请填写服务进度名称')
+    if (services.includes(newServiceName.trim())) return alert('该服务进度已存在')
+    setServices(prev => [...prev, newServiceName.trim()])
+    setNewServiceName('')
+  }
+
+  const removeService = (name) => {
+    setServices(prev => prev.filter(s => s !== name))
+  }
+
+  return (
+    <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal" style={{ maxWidth: 520 }}>
+        <div className="modal-header">
+          <h3>⚙ 系统设置</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
+          {/* 工单类型 */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>工单类型</div>
+            {types.map(t => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: '#f9fafb', borderRadius: 8 }}>
+                <input
+                  value={t.label}
+                  onChange={e => updateType(t.id, 'label', e.target.value)}
+                  style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 13 }}
+                  placeholder="类型名称"
+                />
+                <select
+                  value={t.cls || 'tag-other'}
+                  onChange={e => updateType(t.id, 'cls', e.target.value)}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
+                >
+                  {clsOptions.map(c => <option key={c} value={c}>{c.replace('tag-', '')}</option>)}
+                </select>
+                <select
+                  value={t.service || ''}
+                  onChange={e => updateType(t.id, 'service', e.target.value)}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 12, minWidth: 100 }}
+                >
+                  <option value="">无对应进度</option>
+                  {services.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button
+                  onClick={() => removeType(t.id)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, fontWeight: 700 }}
+                >×</button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <input
+                value={newTypeName}
+                onChange={e => setNewTypeName(e.target.value)}
+                placeholder="新类型名称"
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
+                onKeyDown={e => e.key === 'Enter' && addType()}
+              />
+              <select
+                value={newTypeService}
+                onChange={e => setNewTypeService(e.target.value)}
+                style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 12 }}
+              >
+                <option value="">无对应进度</option>
+                {services.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: 13 }} onClick={addType}>添加</button>
+            </div>
+          </div>
+
+          {/* 服务进度 */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>服务进度</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              {services.map(s => (
+                <span key={s} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: 12, fontSize: 13
+                }}>
+                  {s}
+                  <button
+                    onClick={() => removeService(s)}
+                    style={{ background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: 14, fontWeight: 700, lineHeight: 1 }}
+                  >×</button>
+                </span>
+              ))}
+              {!services.length && <span style={{ color: '#9ca3af', fontSize: 13 }}>暂无服务进度</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={newServiceName}
+                onChange={e => setNewServiceName(e.target.value)}
+                placeholder="新服务进度名称"
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
+                onKeyDown={e => e.key === 'Enter' && addService()}
+              />
+              <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: 13 }} onClick={addService}>添加</button>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>取消</button>
+          <button className="btn btn-primary" onClick={() => onSave({ types, services })}>保存</button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function Kanban() {
@@ -63,6 +219,12 @@ export default function Kanban() {
 
   // 成员表单
   const [memberForm, setMemberForm] = useState({ name: '', role: '全能', status: 'free' })
+
+  // 动态配置（类型 + 服务进度）
+  const [settings, setSettings] = useState(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  // 从 settings 计算出运行时配置
+  const { typeMap: TYPE_MAP, services: ALL_SERVICES, typeServiceMap: TYPE_SERVICE_MAP } = buildConfig(settings)
 
   // 检查登录
   useEffect(() => {
@@ -118,15 +280,17 @@ export default function Kanban() {
   const refreshAll = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     try {
-      const [tRes, mRes, sRes] = await Promise.all([
+      const [tRes, mRes, sRes, stRes] = await Promise.all([
         api('/tickets'),
         api('/members'),
-        api(`/stats?date=${getToday()}`)
+        api(`/stats?date=${getToday()}`),
+        api('/settings')
       ])
       setTickets(tRes.data || [])
       setMembers(mRes.data || [])
       setStats({ total: sRes.data.total, inprogress: sRes.data.inprogress, done: sRes.data.done, urgent: sRes.data.urgent })
       setMemberStats(sRes.data.memberStats || [])
+      if (stRes.data) setSettings(stRes.data)
     } catch (err) {
       console.error('刷新失败:', err)
     }
@@ -170,7 +334,7 @@ export default function Kanban() {
     if (!form.client?.trim()) return alert('请填写客户名称')
     try {
       // 根据工单类型判断对应服务进度是否完成，自动标记状态
-      const autoDone = shouldAutoDone(form.type, services)
+      const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
       const payload = { ...form, services, status: autoDone ? 'done' : (form.status || 'inprogress') }
       if (editMode) {
         await api(`/tickets/${form.id}`, {
@@ -429,6 +593,7 @@ export default function Kanban() {
                 })}
               </div>
               {isAdmin && <button className="add-btn" onClick={() => setShowMemberModal(true)}>＋ 添加组员</button>}
+              {isAdmin && <button className="add-btn" onClick={() => setShowSettingsModal(true)} style={{ background: '#f0f9ff', color: '#2563eb' }}>⚙ 设置</button>}
             </div>
 
             {/* 今日概览 */}
@@ -532,7 +697,7 @@ export default function Kanban() {
                                         ? svc.filter(x => x !== s)
                                         : [...svc, s]
                                       // 根据工单类型判断对应服务进度，自动标记状态
-                                      const autoDone = shouldAutoDone(t.type, newServices)
+                                      const autoDone = shouldAutoDone(t.type, newServices, TYPE_SERVICE_MAP)
                                       const newStatus = autoDone ? 'done' : t.status
                                       // 乐观更新：直接更新本地状态
                                       setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices, status: newStatus } : tk))
@@ -693,6 +858,27 @@ export default function Kanban() {
         </div>
       )}
 
+      {/* 设置面板 */}
+      {showSettingsModal && (
+        <SettingsModal
+          settings={settings}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={async (newSettings) => {
+            try {
+              await api('/settings', {
+                method: 'PUT',
+                body: JSON.stringify(newSettings)
+              })
+              setSettings(prev => ({ ...prev, ...newSettings }))
+              setShowSettingsModal(false)
+              refreshAll()
+            } catch (err) {
+              alert('保存失败: ' + err.message)
+            }
+          }}
+        />
+      )}
+
       {/* 工单详情抽屉 */}
       {showDrawer && drawerTicket && (
         <div className="drawer open">
@@ -723,7 +909,7 @@ export default function Kanban() {
                         ? (drawerTicket.services || []).filter(x => x !== s)
                         : [...(drawerTicket.services || []), s]
                       // 根据工单类型判断对应服务进度，自动标记状态
-                      const autoDone = shouldAutoDone(drawerTicket.type, newServices)
+                      const autoDone = shouldAutoDone(drawerTicket.type, newServices, TYPE_SERVICE_MAP)
                       const newStatus = autoDone ? 'done' : drawerTicket.status
                       // 乐观更新
                       setDrawerTicket({ ...drawerTicket, services: newServices, status: newStatus })
