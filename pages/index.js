@@ -18,6 +18,22 @@ const STATUS_MAP = {
 
 const ALL_SERVICES = ['数据初始化', '医保对接', '系统培训', '上线验收']
 
+// 工单类型 → 对应的服务进度（勾选完成后自动标记为已完成）
+const TYPE_SERVICE_MAP = {
+  init: '数据初始化',
+  training: '系统培训',
+  insurance: '医保对接',
+  followup: '上线验收',
+  // other: 无对应，不自动判断
+}
+
+// 根据工单类型和服务进度判断是否应自动完成
+function shouldAutoDone(type, services) {
+  const target = TYPE_SERVICE_MAP[type]
+  if (!target) return false
+  return Array.isArray(services) && services.includes(target)
+}
+
 export default function Kanban() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -153,9 +169,9 @@ export default function Kanban() {
   const saveTicket = async () => {
     if (!form.client?.trim()) return alert('请填写客户名称')
     try {
-      // 服务进度全部完成时，自动标记为已完成
-      const allDone = ALL_SERVICES.every(s => services.includes(s))
-      const payload = { ...form, services, status: allDone ? 'done' : (form.status || 'inprogress') }
+      // 根据工单类型判断对应服务进度是否完成，自动标记状态
+      const autoDone = shouldAutoDone(form.type, services)
+      const payload = { ...form, services, status: autoDone ? 'done' : (form.status || 'inprogress') }
       if (editMode) {
         await api(`/tickets/${form.id}`, {
           method: 'PUT',
@@ -502,9 +518,9 @@ export default function Kanban() {
                                       const newServices = done
                                         ? svc.filter(x => x !== s)
                                         : [...svc, s]
-                                      // 服务进度全部完成时，自动标记为已完成
-                                      const allDone = ALL_SERVICES.every(sv => newServices.includes(sv))
-                                      const newStatus = allDone ? 'done' : t.status
+                                      // 根据工单类型判断对应服务进度，自动标记状态
+                                      const autoDone = shouldAutoDone(t.type, newServices)
+                                      const newStatus = autoDone ? 'done' : t.status
                                       // 乐观更新：直接更新本地状态
                                       setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices, status: newStatus } : tk))
                                       if (drawerTicket && drawerTicket.id === t.id) {
@@ -693,9 +709,9 @@ export default function Kanban() {
                       const newServices = done
                         ? (drawerTicket.services || []).filter(x => x !== s)
                         : [...(drawerTicket.services || []), s]
-                      // 服务进度全部完成时，自动标记为已完成
-                      const allDone = ALL_SERVICES.every(sv => newServices.includes(sv))
-                      const newStatus = allDone ? 'done' : drawerTicket.status
+                      // 根据工单类型判断对应服务进度，自动标记状态
+                      const autoDone = shouldAutoDone(drawerTicket.type, newServices)
+                      const newStatus = autoDone ? 'done' : drawerTicket.status
                       // 乐观更新
                       setDrawerTicket({ ...drawerTicket, services: newServices, status: newStatus })
                       setTickets(prev => prev.map(tk => tk.id === drawerTicket.id ? { ...tk, services: newServices, status: newStatus } : tk))
