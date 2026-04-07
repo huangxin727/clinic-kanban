@@ -718,7 +718,7 @@ export default function Kanban() {
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
-                                <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#16a34a', border: 'none' }} onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>完成</button>
+                                <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>完成</button>
                               )}
                               <button className="btn btn-outline btn-sm" onClick={() => openDrawer(t.id)}>详情</button>
                               {(isAdmin || t.member_id === profile.id) && (
@@ -969,8 +969,8 @@ export default function Kanban() {
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
               {drawerTicket.status !== 'done' && (
                 <button
-                  className="btn btn-primary"
-                  style={{ flex: 1, background: '#16a34a' }}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
                   onClick={() => openCompleteModal(drawerTicket.id)}
                 >完成工单</button>
               )}
