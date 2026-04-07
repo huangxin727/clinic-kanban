@@ -1,7 +1,7 @@
-import { cachedHandler, getUserMember } from '@/lib/helpers'
+import { getUserMember } from '@/lib/helpers'
 import { getAll, addToList, updateById, removeById, KEYS, genId, findBy } from '@/lib/db'
 
-export default cachedHandler(async function handler(req, res) {
+export default async function handler(req, res) {
   const member = await getUserMember(req)
   if (!member) return res.status(401).json({ error: '未授权' })
 

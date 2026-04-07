@@ -1,7 +1,7 @@
-import { cachedHandler, getUser } from '@/lib/helpers'
+import { getUser } from '@/lib/helpers'
 import { findBy, KEYS, addToList } from '@/lib/db'
 
-export default cachedHandler(async function handler(req, res) {
+export default async function handler(req, res) {
   // 先验证用户身份
   const user = await getUser(req)
   if (!user) return res.status(401).json({ error: '未授权' })
