@@ -1,36 +1,47 @@
-import { supabaseAdmin } from '@/lib/supabase'
 import { getUserMember } from '@/lib/helpers'
+import { getAll, addToList, updateById, KEYS, genId, filterBy, findById } from '@/lib/db'
 
 export default async function handler(req, res) {
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  const member = await getUserMember(supabaseAdmin, token)
+  const member = await getUserMember(req)
   if (!member) return res.status(401).json({ error: '未授权' })
 
   if (req.method === 'GET') {
     const { member_id, type, status, date, search } = req.query
-    
-    let query = supabaseAdmin
-      .from('tickets')
-      .select('*, member:members(id, name, role, color)')
-      .order('created_at', { ascending: false })
+
+    let tickets = await getAll(KEYS.TICKETS)
 
     // 权限过滤：组员只能看自己的，组长看全部
     if (!member.is_admin) {
-      query = query.eq('member_id', member.id)
+      tickets = tickets.filter(t => t.member_id === member.id)
     } else if (member_id) {
-      query = query.eq('member_id', member_id)
+      tickets = tickets.filter(t => t.member_id === member_id)
     }
 
-    if (type) query = query.eq('type', type)
-    if (status) query = query.eq('status', status)
-    if (date) query = query.eq('ticket_date', date)
+    if (type) tickets = tickets.filter(t => t.type === type)
+    if (status) tickets = tickets.filter(t => t.status === status)
+    if (date) tickets = tickets.filter(t => t.ticket_date === date)
     if (search) {
-      query = query.or(`client.ilike.%${search}%,ticket_no.ilike.%${search}%`)
+      const s = search.toLowerCase()
+      tickets = tickets.filter(t =>
+        (t.client || '').toLowerCase().includes(s) ||
+        (t.ticket_no || '').toLowerCase().includes(s)
+      )
     }
 
-    const { data, error } = await query
-    if (error) return res.status(500).json({ error: error.message })
-    return res.json({ success: true, data })
+    // 按创建时间降序
+    tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+    // 关联 member 信息
+    const allMembers = await getAll(KEYS.MEMBERS)
+    const memberMap = {}
+    allMembers.forEach(m => { memberMap[m.id] = m })
+
+    const enriched = tickets.map(t => ({
+      ...t,
+      member: memberMap[t.member_id] ? { id: memberMap[t.member_id].id, name: memberMap[t.member_id].name, role: memberMap[t.member_id].role, color: memberMap[t.member_id].color } : null
+    }))
+
+    return res.json({ success: true, data: enriched })
   }
 
   if (req.method === 'POST') {
@@ -39,28 +50,41 @@ export default async function handler(req, res) {
 
     const ticketDate = req.body.ticket_date || new Date().toISOString().split('T')[0]
 
-    const { data, error } = await supabaseAdmin
-      .from('tickets')
-      .insert({
-        ticket_no, client, type,
-        status: status || 'inprogress',
-        member_id: member_id || member.id,
-        services: services || [],
-        deadline, note, ticket_date: ticketDate
-      })
-      .select('*, member:members(id, name, role, color)')
-      .single()
-
-    if (error) return res.status(500).json({ error: error.message })
+    const ticket = {
+      id: 't_' + genId(),
+      ticket_no,
+      client,
+      type,
+      status: status || 'inprogress',
+      member_id: member_id || member.id,
+      services: services || [],
+      deadline,
+      note,
+      ticket_date: ticketDate,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    await addToList(KEYS.TICKETS, ticket)
 
     // 如果有备注，同时创建日志
     if (note) {
-      await supabaseAdmin
-        .from('ticket_logs')
-        .insert({ ticket_id: data.id, content: note })
+      await addToList(KEYS.LOGS, {
+        id: 'l_' + genId(),
+        ticket_id: ticket.id,
+        content: note,
+        created_at: new Date().toISOString(),
+      })
     }
 
-    return res.json({ success: true, data })
+    // 返回关联 member 信息
+    const allMembers = await getAll(KEYS.MEMBERS)
+    const m = allMembers.find(m => m.id === ticket.member_id)
+    const enriched = {
+      ...ticket,
+      member: m ? { id: m.id, name: m.name, role: m.role, color: m.color } : null
+    }
+
+    return res.json({ success: true, data: enriched })
   }
 
   return res.status(405).json({ error: 'Method not allowed' })

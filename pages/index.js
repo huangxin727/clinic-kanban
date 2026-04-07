@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
-import { supabase, api, getToday } from '@/lib/client'
+import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
 const TYPE_MAP = {
   init: { label: '数据初始化', cls: 'tag-init' },
@@ -50,20 +50,11 @@ export default function Kanban() {
 
   // 检查登录
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        window.location.href = '/login'
-        return
-      }
-      setUser(session.user)
-      loadProfile(session.user)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) window.location.href = '/login'
-    })
-
-    return () => subscription.unsubscribe()
+    if (!isLoggedIn()) {
+      window.location.href = '/login'
+      return
+    }
+    setUser(getCurrentUser())
   }, [])
 
   // 时钟
@@ -274,9 +265,8 @@ export default function Kanban() {
   }
 
   // ===== 登出 =====
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/login'
+  const handleLogout = () => {
+    logout()
   }
 
   // ===== 渲染 =====

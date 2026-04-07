@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/client'
+import { login, register } from '@/lib/client'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
@@ -18,18 +18,13 @@ export default function LoginPage() {
 
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        await login(email, password)
       } else {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
+        await register(email, password)
       }
-
       router.push('/')
     } catch (err) {
-      setError(err.message === 'Invalid login credentials'
-        ? '邮箱或密码错误'
-        : err.message)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
