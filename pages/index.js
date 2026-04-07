@@ -288,7 +288,7 @@ export default function Kanban() {
       const [tRes, mRes, sRes, stRes] = await Promise.all([
         api('/tickets'),
         api('/members'),
-        api(`/stats?date=${getToday()}`),
+        api(`/stats?date=${getToday()}&tz=${-new Date().getTimezoneOffset()/60}`),
         api('/settings')
       ])
       setTickets(tRes.data || [])
