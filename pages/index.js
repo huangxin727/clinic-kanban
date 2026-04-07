@@ -212,6 +212,11 @@ export default function Kanban() {
   const [drawerTicket, setDrawerTicket] = useState(null)
   const [editMode, setEditMode] = useState(false)
 
+  // 完成服务进度弹窗
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [completeInfo, setCompleteInfo] = useState({ ticketId: null, serviceName: null })
+  const [clinicCodeInput, setClinicCodeInput] = useState('')
+
   // 表单
   const [form, setForm] = useState({})
   const [services, setServices] = useState([])
@@ -362,6 +367,55 @@ export default function Kanban() {
       refreshAll()
     } catch (err) {
       alert(err.message)
+    }
+  }
+
+  // ===== 完成服务进度 =====
+  const openCompleteModal = (ticketId, serviceName) => {
+    setCompleteInfo({ ticketId, serviceName })
+    setClinicCodeInput('')
+    setShowCompleteModal(true)
+  }
+
+  const confirmCompleteService = async () => {
+    if (!clinicCodeInput.trim()) return alert('请填写诊所编码')
+    const { ticketId, serviceName } = completeInfo
+    if (!ticketId) return
+
+    try {
+      // 获取当前工单数据
+      const json = await api(`/tickets/${ticketId}`)
+      const ticket = json.data
+      const currentServices = ticket.services || []
+
+      // 如果已经完成，不再重复
+      if (currentServices.includes(serviceName)) {
+        alert('该服务进度已完成')
+        setShowCompleteModal(false)
+        return
+      }
+
+      const newServices = [...currentServices, serviceName]
+      const autoDone = shouldAutoDone(ticket.type, newServices, TYPE_SERVICE_MAP)
+      const newStatus = autoDone ? 'done' : ticket.status
+
+      await api(`/tickets/${ticketId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          services: newServices,
+          status: newStatus,
+          clinic_code: clinicCodeInput.trim(),
+        })
+      })
+
+      setShowCompleteModal(false)
+      refreshAll()
+      // 如果抽屉打开的是同一个工单，刷新抽屉
+      if (drawerTicket && drawerTicket.id === ticketId) {
+        openDrawer(ticketId)
+      }
+    } catch (err) {
+      alert('操作失败: ' + err.message)
     }
   }
 
@@ -687,37 +741,33 @@ export default function Kanban() {
                               {ALL_SERVICES.map((s, i) => {
                                 const done = svc.includes(s)
                                 return (
-                                  <button
+                                  <div
                                     key={s}
-                                    title={`${done ? '已完成' : '未完成'}：${s}（点击切换）`}
+                                    title={`${done ? '已完成' : '未完成'}：${s}`}
                                     className={`progress-step ${done ? 'done' : ''}`}
-                                    onClick={async (e) => {
-                                      e.stopPropagation()
-                                      const newServices = done
-                                        ? svc.filter(x => x !== s)
-                                        : [...svc, s]
-                                      // 根据工单类型判断对应服务进度，自动标记状态
-                                      const autoDone = shouldAutoDone(t.type, newServices, TYPE_SERVICE_MAP)
-                                      const newStatus = autoDone ? 'done' : t.status
-                                      // 乐观更新：直接更新本地状态
-                                      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices, status: newStatus } : tk))
-                                      if (drawerTicket && drawerTicket.id === t.id) {
-                                        setDrawerTicket(prev => ({ ...prev, services: newServices, status: newStatus }))
-                                      }
-                                      try {
-                                        await api(`/tickets/${t.id}`, {
-                                          method: 'PUT',
-                                          body: JSON.stringify({ services: newServices, status: newStatus })
-                                        })
-                                      } catch (err) {
-                                        alert('更新失败: ' + err.message)
-                                        refreshAll()
-                                      }
-                                    }}
+                                    style={{ position: 'relative' }}
                                   >
                                     <span className="step-icon">{done ? '✓' : i + 1}</span>
                                     <span className="step-label">{s}</span>
-                                  </button>
+                                    {!done && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          openCompleteModal(t.id, s)
+                                        }}
+                                        style={{
+                                          position: 'absolute', top: -4, right: -4,
+                                          width: 18, height: 18, borderRadius: '50%',
+                                          background: '#3b82f6', color: '#fff',
+                                          border: 'none', cursor: 'pointer',
+                                          fontSize: 11, lineHeight: '18px',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                        }}
+                                        title={`完成「${s}」`}
+                                      >+</button>
+                                    )}
+                                  </div>
                                 )
                               })}
                             </div>
@@ -794,17 +844,8 @@ export default function Kanban() {
                 </div>
               </div>
               <div className="form-row">
-                <label>服务进度</label>
-                <div className="service-checks">
-                  {ALL_SERVICES.map(s => (
-                    <label key={s} className="service-check">
-                      <input type="checkbox" checked={services.includes(s)} onChange={() => {
-                        setServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
-                      }} />
-                      {s}
-                    </label>
-                  ))}
-                </div>
+                <label>诊所编码</label>
+                <input value={form.clinic_code || ''} onChange={e => setForm({ ...form, clinic_code: e.target.value })} placeholder="完成服务进度时自动填写" readOnly style={{ background: '#f9fafb', color: '#6b7280' }} />
               </div>
               <div className="form-row">
                 <label>备注 / 今日工作内容</label>
@@ -879,6 +920,37 @@ export default function Kanban() {
         />
       )}
 
+      {/* 完成服务进度弹窗 */}
+      {showCompleteModal && (
+        <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) setShowCompleteModal(false) }}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-header">
+              <h3>✅ 完成服务进度</h3>
+              <button className="modal-close" onClick={() => setShowCompleteModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8, fontSize: 14 }}>
+                确认完成：<strong>{completeInfo.serviceName}</strong>
+              </div>
+              <div className="form-row">
+                <label>诊所编码 <span style={{ color: 'red' }}>*</span></label>
+                <input
+                  value={clinicCodeInput}
+                  onChange={e => setClinicCodeInput(e.target.value)}
+                  placeholder="请输入诊所编码"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && confirmCompleteService()}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={confirmCompleteService}>确认完成</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 工单详情抽屉 */}
       {showDrawer && drawerTicket && (
         <div className="drawer open">
@@ -893,54 +965,49 @@ export default function Kanban() {
             <div className="detail-row"><span className="key">负责人</span><span className="val">{drawerTicket.member?.name || '未分配'}</span></div>
             <div className="detail-row"><span className="key">状态</span><span className="val"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
             <div className="detail-row"><span className="key">截止日期</span><span className="val">{drawerTicket.deadline || '未设置'}</span></div>
+            <div className="detail-row"><span className="key">诊所编码</span><span className="val" style={{ fontFamily: 'monospace', fontSize: 14 }}>{drawerTicket.clinic_code || '未填写'}</span></div>
             <div className="detail-row"><span className="key">接单时间</span><span className="val">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</span></div>
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务进度 <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>（点击切换）</span></div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务进度</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {ALL_SERVICES.map(s => {
                 const done = (drawerTicket.services || []).includes(s)
                 return (
-                  <button
-                    key={s}
-                    onClick={async () => {
-                      const newServices = done
-                        ? (drawerTicket.services || []).filter(x => x !== s)
-                        : [...(drawerTicket.services || []), s]
-                      // 根据工单类型判断对应服务进度，自动标记状态
-                      const autoDone = shouldAutoDone(drawerTicket.type, newServices, TYPE_SERVICE_MAP)
-                      const newStatus = autoDone ? 'done' : drawerTicket.status
-                      // 乐观更新
-                      setDrawerTicket({ ...drawerTicket, services: newServices, status: newStatus })
-                      setTickets(prev => prev.map(tk => tk.id === drawerTicket.id ? { ...tk, services: newServices, status: newStatus } : tk))
-                      try {
-                        await api(`/tickets/${drawerTicket.id}`, {
-                          method: 'PUT',
-                          body: JSON.stringify({ services: newServices, status: newStatus })
-                        })
-                      } catch (err) {
-                        alert('更新失败: ' + err.message)
-                        refreshAll()
-                      }
-                    }}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 16,
-                      border: done ? '1.5px solid #16a34a' : '1.5px solid #d1d5db',
-                      background: done ? '#f0fdf4' : '#f9fafb',
-                      color: done ? '#16a34a' : '#6b7280',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: done ? 600 : 400,
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    {done ? '✅' : '⬜'} {s}
-                  </button>
+                  <div key={s} style={{ position: 'relative', display: 'inline-flex' }}>
+                    <span
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 16,
+                        border: done ? '1.5px solid #16a34a' : '1.5px solid #d1d5db',
+                        background: done ? '#f0fdf4' : '#f9fafb',
+                        color: done ? '#16a34a' : '#6b7280',
+                        fontSize: 13,
+                        fontWeight: done ? 600 : 400,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      {done ? '✅' : '⬜'} {s}
+                    </span>
+                    {!done && (
+                      <button
+                        onClick={() => openCompleteModal(drawerTicket.id, s)}
+                        style={{
+                          position: 'absolute', top: -6, right: -6,
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: '#3b82f6', color: '#fff',
+                          border: 'none', cursor: 'pointer',
+                          fontSize: 13, lineHeight: '20px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        }}
+                        title={`完成「${s}」`}
+                      >+</button>
+                    )}
+                  </div>
                 )
               })}
             </div>

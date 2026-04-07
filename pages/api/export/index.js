@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const STATUS_MAP = { pending: '待处理', inprogress: '进行中', done: '已完成', urgent: '需跟进' }
 
   const BOM = '\uFEFF'
-  const header = '工单号,客户名称,类型,负责人,状态,服务进度,接单时间,备注\n'
+  const header = '工单号,客户名称,类型,负责人,状态,服务进度,诊所编码,接单时间,备注\n'
   const rows = dateTickets.map(t =>
     [
       t.ticket_no || '',
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       memberMap[t.member_id]?.name || '',
       STATUS_MAP[t.status] || t.status,
       (t.services || []).join('|'),
+      t.clinic_code || '',
       t.created_at ? new Date(t.created_at).toLocaleString('zh-CN') : '',
       (t.note || '').replace(/,/g, '，').replace(/\n/g, ' ')
     ].join(',')

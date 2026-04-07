@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { ticket_no, client, type, member_id, status, services, deadline, note } = req.body
+    const { ticket_no, client, type, member_id, status, services, deadline, note, clinic_code } = req.body
     if (!client) return res.status(400).json({ error: '请填写客户名称' })
 
     const ticketDate = req.body.ticket_date || new Date().toISOString().split('T')[0]
@@ -58,6 +58,7 @@ export default async function handler(req, res) {
       services: services || [],
       deadline,
       note,
+      clinic_code: clinic_code || '',
       ticket_date: ticketDate,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'PUT') {
     const updates = {}
-    const fields = ['ticket_no', 'client', 'type', 'status', 'member_id', 'services', 'deadline', 'note']
+    const fields = ['ticket_no', 'client', 'type', 'status', 'member_id', 'services', 'deadline', 'note', 'clinic_code']
     fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f] })
 
     // 如果备注变更，追加日志
