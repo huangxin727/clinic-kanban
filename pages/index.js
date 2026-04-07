@@ -281,21 +281,17 @@ export default function Kanban() {
     }
   }
 
-  // 刷新所有数据
+  // 刷新所有数据（单次请求聚合接口）
   const refreshAll = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     try {
-      const [tRes, mRes, sRes, stRes] = await Promise.all([
-        api('/tickets'),
-        api('/members'),
-        api(`/stats?date=${getToday()}&tz=${-new Date().getTimezoneOffset()/60}`),
-        api('/settings')
-      ])
-      setTickets(tRes.data || [])
-      setMembers(mRes.data || [])
-      setStats({ total: sRes.data.total, inprogress: sRes.data.inprogress, done: sRes.data.done, urgent: sRes.data.urgent })
-      setMemberStats(sRes.data.memberStats || [])
-      if (stRes.data) setSettings(stRes.data)
+      const res = await api(`/init?date=${getToday()}&tz=${-new Date().getTimezoneOffset()/60}`)
+      const d = res.data || {}
+      setTickets(d.tickets || [])
+      setMembers(d.members || [])
+      setStats(d.stats || { total: 0, inprogress: 0, done: 0, urgent: 0 })
+      setMemberStats(d.memberStats || [])
+      if (d.settings) setSettings(d.settings)
     } catch (err) {
       console.error('刷新失败:', err)
     }
