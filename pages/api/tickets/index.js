@@ -1,6 +1,15 @@
 import { getUserMember } from '@/lib/helpers'
 import { getAll, addToList, updateById, KEYS, genId, filterBy, findById } from '@/lib/db'
 
+// 自动将成员设为忙碌（仅空闲时生效）
+async function autoSetBusy(memberId) {
+  const members = await getAll(KEYS.MEMBERS)
+  const m = members.find(m => m.id === memberId)
+  if (m && m.status === 'free') {
+    await updateById(KEYS.MEMBERS, memberId, { status: 'busy' })
+  }
+}
+
 export default async function handler(req, res) {
   const member = await getUserMember(req)
   if (!member) return res.status(401).json({ error: '未授权' })
@@ -64,6 +73,11 @@ export default async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }
     await addToList(KEYS.TICKETS, ticket)
+
+    // 接单时自动将成员状态改为忙碌（如果是空闲状态）
+    if (ticket.member_id && ticket.status === 'inprogress') {
+      await autoSetBusy(ticket.member_id)
+    }
 
     // 如果有备注，同时创建日志
     if (note) {

@@ -1,6 +1,25 @@
 import { getUserMember } from '@/lib/helpers'
 import { getAll, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
 
+// 自动将成员设为忙碌（仅空闲时生效）
+async function autoSetBusy(memberId) {
+  const members = await getAll(KEYS.MEMBERS)
+  const m = members.find(m => m.id === memberId)
+  if (m && m.status === 'free') {
+    await updateById(KEYS.MEMBERS, memberId, { status: 'busy' })
+  }
+}
+
+// 完成工单时自动检查是否需要将成员设回空闲
+async function autoSetFree(memberId) {
+  if (!memberId) return
+  const tickets = await getAll(KEYS.TICKETS)
+  const hasInProgress = tickets.some(t => t.member_id === memberId && t.status === 'inprogress')
+  if (!hasInProgress) {
+    await updateById(KEYS.MEMBERS, memberId, { status: 'free' })
+  }
+}
+
 export default async function handler(req, res) {
   const member = await getUserMember(req)
   if (!member) return res.status(401).json({ error: '未授权' })
@@ -47,6 +66,16 @@ export default async function handler(req, res) {
 
     const data = await updateById(KEYS.TICKETS, id, updates)
     if (!data) return res.status(404).json({ error: '工单不存在' })
+
+    // 自动状态管理：完成工单 → 检查成员是否需要恢复空闲
+    if (updates.status === 'done') {
+      await autoSetFree(data.member_id)
+    }
+
+    // 自动状态管理：分配成员 + 状态为进行中 → 成员改为忙碌
+    if (updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))) {
+      await autoSetBusy(updates.member_id)
+    }
 
     // 关联 member
     const allMembers = await getAll(KEYS.MEMBERS)
