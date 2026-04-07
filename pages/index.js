@@ -250,7 +250,10 @@ export default function Kanban() {
   }
 
   const toggleMemberStatus = async (m) => {
-    const next = m.status === 'busy' ? 'free' : 'busy'
+    // 空闲 → 忙碌 → 离线 → 空闲
+    const order = ['free', 'busy', 'offline']
+    const idx = order.indexOf(m.status || 'free')
+    const next = order[(idx + 1) % order.length]
     try {
       await api(`/members/${m.id}`, {
         method: 'PUT',
@@ -374,8 +377,12 @@ export default function Kanban() {
               <div className="member-list">
                 {members.map(m => {
                   const count = (memberStats.find(ms => ms.id === m.id)?.tickets || []).length
-                  const dotCls = m.status === 'busy' ? 'dot-busy' : m.status === 'free' ? 'dot-free' : 'dot-offline'
-                  const statusLabel = m.status === 'busy' ? '忙碌' : m.status === 'free' ? '空闲' : '离线'
+                  const statusConfig = {
+                    free: { label: '空闲', bg: '#dcfce7', color: '#16a34a' },
+                    busy: { label: '忙碌', bg: '#fef3c7', color: '#d97706' },
+                    offline: { label: '离线', bg: '#f3f4f6', color: '#9ca3af' },
+                  }
+                  const sc = statusConfig[m.status] || statusConfig.free
                   return (
                     <div key={m.id} className={`member-item ${selectedMember === m.id ? 'active' : ''}`}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}
@@ -389,27 +396,33 @@ export default function Kanban() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isAdmin && !m.is_admin && (
-                          <>
-                            <button
-                              title={`切换状态：${statusLabel}`}
-                              className={`status-dot ${dotCls}`}
-                              style={{ cursor: 'pointer', width: 12, height: 12, border: 'none' }}
-                              onClick={(e) => { e.stopPropagation(); toggleMemberStatus(m) }}
-                            />
-                            <button
-                              title="删除组员"
-                              style={{
-                                background: 'none', border: 'none', cursor: 'pointer',
-                                fontSize: 14, color: '#d1d5db', padding: 0, lineHeight: 1,
-                              }}
-                              onClick={(e) => { e.stopPropagation(); removeMember(m) }}
-                              onMouseEnter={e => e.target.style.color = '#ef4444'}
-                              onMouseLeave={e => e.target.style.color = '#d1d5db'}
-                            >×</button>
-                          </>
+                        {(isAdmin && !m.is_admin) || true ? (
+                          <button
+                            title="点击切换状态（空闲/忙碌/离线）"
+                            style={{
+                              background: sc.bg, color: sc.color, border: 'none', borderRadius: 10,
+                              padding: '2px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onClick={(e) => { e.stopPropagation(); if (isAdmin && !m.is_admin) toggleMemberStatus(m) }}
+                          >
+                            {sc.label}
+                          </button>
+                        ) : (
+                          <div className={`status-dot ${m.status === 'busy' ? 'dot-busy' : 'dot-free'}`} />
                         )}
-                        {!isAdmin && <div className={`status-dot ${dotCls}`} />}
+                        {isAdmin && !m.is_admin && (
+                          <button
+                            title="删除组员"
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              fontSize: 14, color: '#d1d5db', padding: 0, lineHeight: 1,
+                            }}
+                            onClick={(e) => { e.stopPropagation(); removeMember(m) }}
+                            onMouseEnter={e => e.target.style.color = '#ef4444'}
+                            onMouseLeave={e => e.target.style.color = '#d1d5db'}
+                          >×</button>
+                        )}
                       </div>
                     </div>
                   )
