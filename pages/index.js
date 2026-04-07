@@ -370,47 +370,29 @@ export default function Kanban() {
     }
   }
 
-  // ===== 完成服务进度 =====
-  const openCompleteModal = (ticketId, serviceName) => {
-    setCompleteInfo({ ticketId, serviceName })
+  // ===== 完成工单 =====
+  const openCompleteModal = (ticketId) => {
+    setCompleteInfo({ ticketId })
     setClinicCodeInput('')
     setShowCompleteModal(true)
   }
 
-  const confirmCompleteService = async () => {
+  const confirmCompleteTicket = async () => {
     if (!clinicCodeInput.trim()) return alert('请填写诊所编码')
-    const { ticketId, serviceName } = completeInfo
+    const { ticketId } = completeInfo
     if (!ticketId) return
 
     try {
-      // 获取当前工单数据
-      const json = await api(`/tickets/${ticketId}`)
-      const ticket = json.data
-      const currentServices = ticket.services || []
-
-      // 如果已经完成，不再重复
-      if (currentServices.includes(serviceName)) {
-        alert('该服务进度已完成')
-        setShowCompleteModal(false)
-        return
-      }
-
-      const newServices = [...currentServices, serviceName]
-      const autoDone = shouldAutoDone(ticket.type, newServices, TYPE_SERVICE_MAP)
-      const newStatus = autoDone ? 'done' : ticket.status
-
       await api(`/tickets/${ticketId}`, {
         method: 'PUT',
         body: JSON.stringify({
-          services: newServices,
-          status: newStatus,
+          status: 'done',
           clinic_code: clinicCodeInput.trim(),
         })
       })
 
       setShowCompleteModal(false)
       refreshAll()
-      // 如果抽屉打开的是同一个工单，刷新抽屉
       if (drawerTicket && drawerTicket.id === ticketId) {
         openDrawer(ticketId)
       }
@@ -710,7 +692,7 @@ export default function Kanban() {
                       <th>类型</th>
                       <th>负责人</th>
                       <th>状态</th>
-                      <th>服务进度</th>
+                      <th>诊所编码</th>
                       <th>接单时间</th>
                       <th>备注</th>
                       <th>操作</th>
@@ -721,8 +703,6 @@ export default function Kanban() {
                       const m = t.member || {}
                       const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                       const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
-                      const svc = t.services || []
-                      const pct = Math.round(svc.length / 4 * 100)
                       const time = t.created_at ? new Date(t.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
                       return (
                         <tr key={t.id}>
@@ -736,46 +716,14 @@ export default function Kanban() {
                             </div>
                           </td>
                           <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                          <td>
-                            <div className="progress-steps">
-                              {ALL_SERVICES.map((s, i) => {
-                                const done = svc.includes(s)
-                                return (
-                                  <div
-                                    key={s}
-                                    title={`${done ? '已完成' : '未完成'}：${s}`}
-                                    className={`progress-step ${done ? 'done' : ''}`}
-                                    style={{ position: 'relative' }}
-                                  >
-                                    <span className="step-icon">{done ? '✓' : i + 1}</span>
-                                    <span className="step-label">{s}</span>
-                                    {!done && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          openCompleteModal(t.id, s)
-                                        }}
-                                        style={{
-                                          position: 'absolute', top: -4, right: -4,
-                                          width: 18, height: 18, borderRadius: '50%',
-                                          background: '#3b82f6', color: '#fff',
-                                          border: 'none', cursor: 'pointer',
-                                          fontSize: 11, lineHeight: '18px',
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                        }}
-                                        title={`完成「${s}」`}
-                                      >+</button>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </td>
+                          <td style={{ fontFamily: 'monospace', fontSize: 13, color: t.clinic_code ? '#374151' : '#9ca3af' }}>{t.clinic_code || '-'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{time}</td>
                           <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             <div className="action-group">
+                              {t.status !== 'done' && (
+                                <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#16a34a', border: 'none' }} onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>完成</button>
+                              )}
                               <button className="btn btn-outline btn-sm" onClick={() => openDrawer(t.id)}>详情</button>
                               {(isAdmin || t.member_id === profile.id) && (
                                 <button className="btn btn-outline btn-sm" onClick={() => openEditTicket(t)}>编辑</button>
@@ -920,17 +868,17 @@ export default function Kanban() {
         />
       )}
 
-      {/* 完成服务进度弹窗 */}
+      {/* 完成工单弹窗 */}
       {showCompleteModal && (
         <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) setShowCompleteModal(false) }}>
           <div className="modal" style={{ maxWidth: 380 }}>
             <div className="modal-header">
-              <h3>✅ 完成服务进度</h3>
+              <h3>✅ 完成工单</h3>
               <button className="modal-close" onClick={() => setShowCompleteModal(false)}>×</button>
             </div>
             <div className="modal-body">
               <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8, fontSize: 14 }}>
-                确认完成：<strong>{completeInfo.serviceName}</strong>
+                确认将此工单标记为<strong>已完成</strong>
               </div>
               <div className="form-row">
                 <label>诊所编码 <span style={{ color: 'red' }}>*</span></label>
@@ -939,13 +887,13 @@ export default function Kanban() {
                   onChange={e => setClinicCodeInput(e.target.value)}
                   placeholder="请输入诊所编码"
                   autoFocus
-                  onKeyDown={e => e.key === 'Enter' && confirmCompleteService()}
+                  onKeyDown={e => e.key === 'Enter' && confirmCompleteTicket()}
                 />
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={confirmCompleteService}>确认完成</button>
+              <button className="btn btn-primary" onClick={confirmCompleteTicket}>确认完成</button>
             </div>
           </div>
         </div>
@@ -975,39 +923,23 @@ export default function Kanban() {
               {ALL_SERVICES.map(s => {
                 const done = (drawerTicket.services || []).includes(s)
                 return (
-                  <div key={s} style={{ position: 'relative', display: 'inline-flex' }}>
-                    <span
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: 16,
-                        border: done ? '1.5px solid #16a34a' : '1.5px solid #d1d5db',
-                        background: done ? '#f0fdf4' : '#f9fafb',
-                        color: done ? '#16a34a' : '#6b7280',
-                        fontSize: 13,
-                        fontWeight: done ? 600 : 400,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      {done ? '✅' : '⬜'} {s}
-                    </span>
-                    {!done && (
-                      <button
-                        onClick={() => openCompleteModal(drawerTicket.id, s)}
-                        style={{
-                          position: 'absolute', top: -6, right: -6,
-                          width: 20, height: 20, borderRadius: '50%',
-                          background: '#3b82f6', color: '#fff',
-                          border: 'none', cursor: 'pointer',
-                          fontSize: 13, lineHeight: '20px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        }}
-                        title={`完成「${s}」`}
-                      >+</button>
-                    )}
-                  </div>
+                  <span
+                    key={s}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 16,
+                      border: done ? '1.5px solid #16a34a' : '1.5px solid #d1d5db',
+                      background: done ? '#f0fdf4' : '#f9fafb',
+                      color: done ? '#16a34a' : '#6b7280',
+                      fontSize: 13,
+                      fontWeight: done ? 600 : 400,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    {done ? '✅' : '⬜'} {s}
+                  </span>
                 )
               })}
             </div>
@@ -1039,6 +971,13 @@ export default function Kanban() {
             </div>
 
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              {drawerTicket.status !== 'done' && (
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, background: '#16a34a' }}
+                  onClick={() => openCompleteModal(drawerTicket.id)}
+                >完成工单</button>
+              )}
               {(isAdmin || drawerTicket.member_id === profile.id) && (
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setShowDrawer(false); openEditTicket(drawerTicket) }}>编辑工单</button>
               )}
