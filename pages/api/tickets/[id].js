@@ -90,8 +90,18 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     if (!member.is_admin) return res.status(403).json({ error: '仅组长可删除' })
 
+    // 删除前获取工单的成员信息
+    const ticket = await findById(KEYS.TICKETS, id)
+    if (!ticket) return res.status(404).json({ error: '工单不存在' })
+
     const ok = await removeById(KEYS.TICKETS, id)
     if (!ok) return res.status(404).json({ error: '工单不存在' })
+
+    // 删除后检查该成员是否还有进行中工单，没有则恢复空闲
+    if (ticket.member_id && ticket.status === 'inprogress') {
+      await autoSetFree(ticket.member_id)
+    }
+
     return res.json({ success: true })
   }
 
