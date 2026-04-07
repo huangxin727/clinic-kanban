@@ -153,7 +153,9 @@ export default function Kanban() {
   const saveTicket = async () => {
     if (!form.client?.trim()) return alert('请填写客户名称')
     try {
-      const payload = { ...form, services }
+      // 服务进度全部完成时，自动标记为已完成
+      const allDone = ALL_SERVICES.every(s => services.includes(s))
+      const payload = { ...form, services, status: allDone ? 'done' : (form.status || 'inprogress') }
       if (editMode) {
         await api(`/tickets/${form.id}`, {
           method: 'PUT',
@@ -500,19 +502,22 @@ export default function Kanban() {
                                       const newServices = done
                                         ? svc.filter(x => x !== s)
                                         : [...svc, s]
+                                      // 服务进度全部完成时，自动标记为已完成
+                                      const allDone = ALL_SERVICES.every(sv => newServices.includes(sv))
+                                      const newStatus = allDone ? 'done' : t.status
                                       // 乐观更新：直接更新本地状态
-                                      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices } : tk))
+                                      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, services: newServices, status: newStatus } : tk))
                                       if (drawerTicket && drawerTicket.id === t.id) {
-                                        setDrawerTicket(prev => ({ ...prev, services: newServices }))
+                                        setDrawerTicket(prev => ({ ...prev, services: newServices, status: newStatus }))
                                       }
                                       try {
                                         await api(`/tickets/${t.id}`, {
                                           method: 'PUT',
-                                          body: JSON.stringify({ services: newServices })
+                                          body: JSON.stringify({ services: newServices, status: newStatus })
                                         })
                                       } catch (err) {
                                         alert('更新失败: ' + err.message)
-                                        refreshAll() // 失败时回滚
+                                        refreshAll()
                                       }
                                     }}
                                   >
@@ -688,17 +693,20 @@ export default function Kanban() {
                       const newServices = done
                         ? (drawerTicket.services || []).filter(x => x !== s)
                         : [...(drawerTicket.services || []), s]
+                      // 服务进度全部完成时，自动标记为已完成
+                      const allDone = ALL_SERVICES.every(sv => newServices.includes(sv))
+                      const newStatus = allDone ? 'done' : drawerTicket.status
                       // 乐观更新
-                      setDrawerTicket({ ...drawerTicket, services: newServices })
-                      setTickets(prev => prev.map(tk => tk.id === drawerTicket.id ? { ...tk, services: newServices } : tk))
+                      setDrawerTicket({ ...drawerTicket, services: newServices, status: newStatus })
+                      setTickets(prev => prev.map(tk => tk.id === drawerTicket.id ? { ...tk, services: newServices, status: newStatus } : tk))
                       try {
                         await api(`/tickets/${drawerTicket.id}`, {
                           method: 'PUT',
-                          body: JSON.stringify({ services: newServices })
+                          body: JSON.stringify({ services: newServices, status: newStatus })
                         })
                       } catch (err) {
                         alert('更新失败: ' + err.message)
-                        refreshAll() // 失败时回滚
+                        refreshAll()
                       }
                     }}
                     style={{
