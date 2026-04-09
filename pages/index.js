@@ -60,7 +60,7 @@ function buildConfig(settings) {
   return { typeMap, services, typeServiceMap }
 }
 
-// 根据工单类型和服务进度判断是否应自动完成
+// 根据工单类型和服务内容判断是否应自动完成
 function shouldAutoDone(type, services, typeServiceMap) {
   const target = typeServiceMap[type]
   if (!target) return false
@@ -237,8 +237,8 @@ function SettingsModal({ settings, onClose, onSave }) {
   }
 
   const addService = () => {
-    if (!newServiceName.trim()) return alert('请填写服务进度名称')
-    if (services.includes(newServiceName.trim())) return alert('该服务进度已存在')
+    if (!newServiceName.trim()) return alert('请填写服务内容名称')
+    if (services.includes(newServiceName.trim())) return alert('该服务内容已存在')
     setServices(prev => [...prev, newServiceName.trim()])
     setNewServiceName('')
   }
@@ -307,9 +307,9 @@ function SettingsModal({ settings, onClose, onSave }) {
             </div>
           </div>
 
-          {/* 服务进度 */}
+          {/* 服务内容 */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>服务进度</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>服务内容</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
               {services.map(s => (
                 <span key={s} style={{
@@ -323,13 +323,13 @@ function SettingsModal({ settings, onClose, onSave }) {
                   >×</button>
                 </span>
               ))}
-              {!services.length && <span style={{ color: '#9ca3af', fontSize: 13 }}>暂无服务进度</span>}
+              {!services.length && <span style={{ color: '#9ca3af', fontSize: 13 }}>暂无服务内容</span>}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 value={newServiceName}
                 onChange={e => setNewServiceName(e.target.value)}
-                placeholder="新服务进度名称"
+                placeholder="新服务内容名称"
                 style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
                 onKeyDown={e => e.key === 'Enter' && addService()}
               />
@@ -369,7 +369,7 @@ export default function Kanban() {
   const [drawerTicket, setDrawerTicket] = useState(null)
   const [editMode, setEditMode] = useState(false)
 
-  // 完成服务进度弹窗
+  // 完成服务内容弹窗
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [completeInfo, setCompleteInfo] = useState({ ticketId: null, serviceName: null })
   const [clinicCodeInput, setClinicCodeInput] = useState('')
@@ -385,7 +385,7 @@ export default function Kanban() {
   // 成员表单
   const [memberForm, setMemberForm] = useState({ name: '', role: '全能', status: 'free', email: '', password: '' })
 
-  // 动态配置（类型 + 服务进度）
+  // 动态配置（类型 + 服务内容）
   const [settings, setSettings] = useState(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   // 从 settings 计算出运行时配置
@@ -484,7 +484,7 @@ export default function Kanban() {
     if (savingTicket) return
     setSavingTicket(true)
     try {
-      // 根据工单类型判断对应服务进度是否完成，自动标记状态
+      // 根据工单类型判断对应服务内容是否完成，自动标记状态
       const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
       const payload = { ...form, services, ticket_date: getToday(), status: autoDone ? 'done' : (form.status || 'inprogress') }
       if (editMode) {
@@ -931,7 +931,7 @@ export default function Kanban() {
               </div>
               <div className="form-row">
                 <label>诊所编码</label>
-                <input value={form.clinic_code || ''} onChange={e => setForm({ ...form, clinic_code: e.target.value })} placeholder="完成服务进度时自动填写" readOnly style={{ background: '#f9fafb', color: '#6b7280' }} />
+                <input value={form.clinic_code || ''} onChange={e => setForm({ ...form, clinic_code: e.target.value })} placeholder="完成服务内容时自动填写" readOnly style={{ background: '#f9fafb', color: '#6b7280' }} />
               </div>
               <div className="form-row">
                 <label>备注 / 今日工作内容</label>
@@ -1075,14 +1075,14 @@ export default function Kanban() {
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务进度</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务内容</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {(() => {
-                // 根据工单类型只展示对应的服务进度
+                // 根据工单类型只展示对应的服务内容
                 const typeService = TYPE_SERVICE_MAP[drawerTicket.type]
                 const ticketServices = drawerTicket.services || []
                 if (!typeService) {
-                  return <span style={{ color: '#9ca3af', fontSize: 13 }}>该类型未配置服务进度</span>
+                  return <span style={{ color: '#9ca3af', fontSize: 13 }}>该类型未配置服务内容</span>
                 }
                 const done = ticketServices.includes(typeService)
                 return (
