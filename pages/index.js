@@ -604,13 +604,19 @@ export default function Kanban() {
 
   // ===== 详情抽屉 =====
   const openDrawer = async (id) => {
+    // 先用本地数据立即打开抽屉（秒开）
+    const localTicket = tickets.find(t => t.id === id)
+    if (localTicket) {
+      setDrawerTicket(localTicket)
+      setShowDrawer(true)
+      setLogInput('')
+    }
+    // 后台静默刷新完整数据（含 logs）
     try {
       const json = await api(`/tickets/${id}`)
       setDrawerTicket(json.data)
-      setShowDrawer(true)
-      setLogInput('')
     } catch (err) {
-      alert(err.message)
+      // 静默失败，本地数据已经展示了
     }
   }
 
