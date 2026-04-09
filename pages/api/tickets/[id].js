@@ -64,8 +64,11 @@ export default async function handler(req, res) {
     }
     delete updates._old_note
 
-    // 自动记录完成时间
-    if (updates.status === 'done') {
+    // 先查旧数据，判断是否需要记录完成时间
+    const oldTicket = await findById(KEYS.TICKETS, id)
+
+    // 只在状态从非done变为done时才记录完成时间（避免编辑已完成的工单覆盖原完成时间）
+    if (updates.status === 'done' && (!oldTicket || oldTicket.status !== 'done') && !updates.completed_at) {
       updates.completed_at = new Date().toISOString()
     }
 
