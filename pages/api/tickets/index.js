@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, getAllBatch, addToList, updateById, KEYS, genId, filterBy, findById } from '@/lib/db'
+import { getAll, addToList, updateById, KEYS, genId, filterBy, findById } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -17,8 +17,11 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { member_id, type, status, date, search } = req.query
 
-    // pipeline 单次网络往返读取 tickets + members
-    const [tickets, allMembers] = await getAllBatch([KEYS.TICKETS, KEYS.MEMBERS])
+    // 并行读取 tickets + members
+    const [tickets, allMembers] = await Promise.all([
+      getAll(KEYS.TICKETS),
+      getAll(KEYS.MEMBERS),
+    ])
 
     let filtered = tickets
 

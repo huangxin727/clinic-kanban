@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, getAllBatch, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
+import { getAll, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -27,8 +27,11 @@ export default async function handler(req, res) {
   const { id } = req.query
 
   if (req.method === 'GET') {
-    // pipeline 单次网络往返读取 ticket + members + logs
-    const [tickets, members, logs] = await getAllBatch([KEYS.TICKETS, KEYS.MEMBERS, KEYS.LOGS])
+    const [tickets, members, logs] = await Promise.all([
+      getAll(KEYS.TICKETS),
+      getAll(KEYS.MEMBERS),
+      getAll(KEYS.LOGS),
+    ])
     const ticket = tickets.find(t => t.id === id)
     if (!ticket) return res.status(404).json({ error: '工单不存在' })
 
