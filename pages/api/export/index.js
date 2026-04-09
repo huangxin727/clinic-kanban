@@ -38,8 +38,9 @@ export default async function handler(req, res) {
     ).join('\n')
 
     const csv = BOM + header + rows
+    const filename = encodeURIComponent(`工单日报_${date}.csv`)
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename="工单日报_${date}.csv"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${filename}`)
     res.send(csv)
   } catch (err) {
     console.error('导出日报失败:', err.message, err.stack)
