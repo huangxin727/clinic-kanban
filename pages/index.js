@@ -404,7 +404,9 @@ export default function Kanban() {
       return
     }
     setUser(getCurrentUser())
+    // profile 和数据并行加载
     loadProfile(getCurrentUser())
+    refreshAll()
   }, [])
 
   // 时钟
@@ -448,13 +450,11 @@ export default function Kanban() {
     if (showRefresh) setRefreshing(false)
   }, [])
 
-  // 首次加载 + 自动轮询刷新（30秒）
+  // 自动轮询刷新（10秒）
   useEffect(() => {
-    if (!profile) return
-    refreshAll()
     const timer = setInterval(() => refreshAll(), 10000)
     return () => clearInterval(timer)
-  }, [profile, refreshAll])
+  }, [refreshAll])
 
   // 过滤工单
   const filteredTickets = tickets.filter(t => {
@@ -659,8 +659,45 @@ export default function Kanban() {
   // ===== 渲染 =====
   if (!user) return <div style={{ textAlign: 'center', padding: 100 }}>加载中...</div>
 
-  // profile 加载中，显示加载提示（避免闪烁"未关联"）
-  if (loading) return <div style={{ textAlign: 'center', padding: 100 }}>加载中...</div>
+  // 骨架屏
+  if (loading) {
+    const sk = { background: '#e5e7eb', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }
+    return (
+      <>
+        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+        <div className="topbar">
+          <h1>🏥 实施工单看板</h1>
+          <div className="right"><span>加载中...</span></div>
+        </div>
+        <div className="container">
+          <div className="stats-row">
+            {[1,2,3,4].map(i => <div key={i} className="stat-card blue" style={{ height: 72 }}><div style={{...sk, height: 20, width: '40%', margin: '16px 0 8px' }}/><div style={{...sk, height: 24, width: '30%', margin: '0 auto' }}/></div>)}
+          </div>
+          <div className="main-grid">
+            <div>
+              <div className="sidebar">
+                <div className="sidebar-header">👥 组员列表</div>
+                <div className="member-list">
+                  {[1,2,3].map(i => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}><div style={{...sk, width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }}/><div style={{ flex: 1 }}><div style={{...sk, height: 16, width: '60%', marginBottom: 6 }}/><div style={{...sk, height: 12, width: '40%' }}/></div></div>)}
+                </div>
+              </div>
+            </div>
+            <div className="board">
+              <div className="toolbar">
+                {[1,2,3,4].map(i => <div key={i} style={{...sk, height: 36, width: 100, borderRadius: 6 }}/>)}
+                <div className="spacer" />
+                <div style={{...sk, height: 36, width: 100 }}/>
+              </div>
+              <div className="ticket-section">
+                <div className="section-header"><span className="title">工单列表</span><span className="badge">-</span></div>
+                {[1,2,3,4,5].map(i => <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}><div style={{...sk, height: 14, width: 120 }}/><div style={{...sk, height: 14, width: 80 }}/><div style={{...sk, height: 14, flex: 1 }}/><div style={{...sk, height: 14, width: 60 }}/></div>)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   // 如果 profile 不存在，直接退出（需要组长先创建成员账号）
   if (!profile) {
