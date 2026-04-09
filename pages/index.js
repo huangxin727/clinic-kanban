@@ -890,7 +890,7 @@ export default function Kanban() {
                             </div>
                           </td>
                           <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                          <td style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: t.clinic_code ? '#111827' : '#9ca3af' }}>{t.clinic_code || '-'}</td>
+                          <td style={{ fontWeight: 600, color: t.clinic_code ? '#111827' : '#9ca3af' }}>{t.clinic_code || '-'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{time}</td>
                           <td style={{ color: t.completed_at ? '#16a34a' : 'var(--text-muted)' }}>{doneTime}</td>
                           <td style={{ color: t.deadline ? '#374151' : 'var(--text-muted)' }}>{deadlineStr}</td>
