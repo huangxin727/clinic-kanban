@@ -371,6 +371,11 @@ export default function Kanban() {
   const [clinicCodeInput, setClinicCodeInput] = useState('')
   const [completingTicket, setCompletingTicket] = useState(false)
 
+  // 需跟进弹窗
+  const [showUrgentModal, setShowUrgentModal] = useState(false)
+  const [urgentInfo, setUrgentInfo] = useState({ ticketId: null })
+  const [urgentNote, setUrgentNote] = useState('')
+
   // 时间表弹窗
   const [showTimelineModal, setShowTimelineModal] = useState(false)
 
@@ -609,18 +614,28 @@ export default function Kanban() {
     })
   }
 
-  // 标为需跟进（乐观更新）
-  const markUrgent = (ticketId) => {
+  // 标为需跟进（打开弹窗填写备注）
+  const openUrgentModal = (ticketId) => {
+    const t = tickets.find(t => t.id === ticketId)
+    setUrgentInfo({ ticketId })
+    setUrgentNote(t?.note || '')
+    setShowUrgentModal(true)
+  }
+
+  const confirmMarkUrgent = () => {
+    const { ticketId } = urgentInfo
+    if (!ticketId) return
     const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
     // 乐观更新本地状态
-    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'urgent' } : t))
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'urgent', note: urgentNote.trim() } : t))
     if (needReopenDrawer) {
-      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent' } : prev)
+      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent', note: urgentNote.trim() } : prev)
     }
-    // 后台异步提交，失败回滚
+    setShowUrgentModal(false)
+    // 后台异步提交
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
-      body: JSON.stringify({ status: 'urgent' })
+      body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
     }).then(() => refreshAll()).catch(err => {
       alert('操作失败: ' + err.message)
       refreshAll()
@@ -1051,7 +1066,7 @@ export default function Kanban() {
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && t.status !== 'urgent' && (
-                                <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); markUrgent(t.id) }}><Icon type="flag"/></button>
+                                <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
                               )}
                               {t.status === 'urgent' && (
                                 <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); cancelUrgent(t.id) }}><Icon type="flag"/></button>
@@ -1242,6 +1257,38 @@ export default function Kanban() {
         </div>
       )}
 
+      {/* 需跟进弹窗 */}
+      {showUrgentModal && (
+        <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) setShowUrgentModal(false) }}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-header">
+              <h3>🚩 标为需跟进</h3>
+              <button className="modal-close" onClick={() => setShowUrgentModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fff7ed', borderRadius: 8 }}>
+                确认将此工单标记为<strong style={{ color: '#ea580c' }}>需跟进</strong>
+              </div>
+              <div className="form-row">
+                <label>跟进内容</label>
+                <textarea
+                  rows={3}
+                  value={urgentNote}
+                  onChange={e => setUrgentNote(e.target.value)}
+                  placeholder="请填写需要跟进的内容..."
+                  autoFocus
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowUrgentModal(false)}>取消</button>
+              <button className="btn btn-primary" style={{ background: '#ea580c', borderColor: '#ea580c' }} onClick={confirmMarkUrgent}>确认</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 时间段工作表弹窗 */}
       {showTimelineModal && (
         <TimelineModal
@@ -1346,7 +1393,7 @@ export default function Kanban() {
                 <button
                   className="btn btn-outline"
                   style={{ flex: 1, color: '#ea580c', borderColor: '#ea580c' }}
-                  onClick={() => { markUrgent(drawerTicket.id); setShowDrawer(false) }}
+                  onClick={() => openUrgentModal(drawerTicket.id)}
                 >标为需跟进</button>
               )}
               {drawerTicket.status === 'urgent' && (
