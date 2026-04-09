@@ -71,8 +71,8 @@ function shouldAutoDone(type, services, typeServiceMap) {
 function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
   const today = getToday()
 
-  // 筛选今日工单
-  const todayTickets = tickets.filter(t => t.ticket_date === today || (t.created_at && t.created_at.startsWith(today)))
+  // 筛选今日工单（ticket_date 匹配本地日期）
+  const todayTickets = tickets.filter(t => t.ticket_date === today)
 
   // 按成员分组
   const groupedByMember = {}
@@ -88,16 +88,18 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
     groupedByMember[mid].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
   })
 
-  // 生成时间段（8:00 - 22:00，每小时一格）
+  // 生成时间段（8:00 - 当前小时，动态扩展到23点）
+  const currentHour = new Date().getHours()
   const hours = []
-  for (let h = 8; h <= 22; h++) {
+  for (let h = 8; h <= Math.max(22, Math.min(currentHour, 23)); h++) {
     hours.push(h)
   }
 
-  // 判断某个工单在哪个时间段
+  // 用本地时间判断工单所在小时
   const getHour = (dateStr) => {
     if (!dateStr) return -1
-    return new Date(dateStr).getHours()
+    const d = new Date(dateStr)
+    return d.getHours()
   }
 
   // 判断工单是否在进行中的时间段

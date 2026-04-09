@@ -60,7 +60,11 @@ export default async function handler(req, res) {
     const { ticket_no, client, type, member_id, status, services, deadline, note, clinic_code } = req.body
     if (!client) return res.status(400).json({ error: '请填写客户名称' })
 
-    const ticketDate = req.body.ticket_date || new Date().toISOString().split('T')[0]
+    const tzOffset = parseInt(req.body.tz || '0', 10)
+    const ticketDate = req.body.ticket_date || (() => {
+      const now = new Date()
+      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+    })()
 
     const ticket = {
       id: 't_' + genId(),
