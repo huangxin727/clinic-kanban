@@ -363,6 +363,7 @@ export default function Kanban() {
 
   // 显示modal
   const [showTicketModal, setShowTicketModal] = useState(false)
+  const [savingTicket, setSavingTicket] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [drawerTicket, setDrawerTicket] = useState(null)
@@ -480,6 +481,8 @@ export default function Kanban() {
 
   const saveTicket = async () => {
     if (!form.client?.trim()) return alert('请填写客户名称')
+    if (savingTicket) return
+    setSavingTicket(true)
     try {
       // 根据工单类型判断对应服务进度是否完成，自动标记状态
       const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
@@ -500,6 +503,8 @@ export default function Kanban() {
       refreshAll()
     } catch (err) {
       alert('保存失败: ' + err.message)
+    } finally {
+      setSavingTicket(false)
     }
   }
 
@@ -934,8 +939,8 @@ export default function Kanban() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowTicketModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={saveTicket}>保存</button>
+              <button className="btn btn-outline" onClick={() => setShowTicketModal(false)} disabled={savingTicket}>取消</button>
+              <button className="btn btn-primary" onClick={saveTicket} disabled={savingTicket}>{savingTicket ? '保存中...' : '保存'}</button>
             </div>
           </div>
         </div>
