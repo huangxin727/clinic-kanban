@@ -748,25 +748,31 @@ export default function Kanban() {
       </div>
 
       <div className="container">
-        {/* 统计 */}
-        <div className="stats-row">
-          <div className="stat-card blue">
-            <div className="label">今日工单</div>
-            <div className="value">{stats.total}</div>
-          </div>
-          <div className="stat-card orange">
-            <div className="label">进行中</div>
-            <div className="value">{stats.inprogress}</div>
-          </div>
-          <div className="stat-card green">
-            <div className="label">已完成</div>
-            <div className="value">{stats.done}</div>
-          </div>
-          <div className="stat-card red">
-            <div className="label">需跟进</div>
-            <div className="value">{stats.urgent}</div>
-          </div>
-        </div>
+        {/* 统计 - 当前登录账号的今日工单 */}
+        {(() => {
+          const myStats = memberStats.find(ms => ms.id === profile?.id)
+          const myTickets = myStats?.tickets || []
+          return (
+            <div className="stats-row">
+              <div className="stat-card blue">
+                <div className="label">我的今日工单</div>
+                <div className="value">{myTickets.length}</div>
+              </div>
+              <div className="stat-card orange">
+                <div className="label">进行中</div>
+                <div className="value">{myTickets.filter(t => t.status === 'inprogress').length}</div>
+              </div>
+              <div className="stat-card green">
+                <div className="label">已完成</div>
+                <div className="value">{myTickets.filter(t => t.status === 'done').length}</div>
+              </div>
+              <div className="stat-card red">
+                <div className="label">需跟进</div>
+                <div className="value">{myTickets.filter(t => t.status === 'urgent').length}</div>
+              </div>
+            </div>
+          )
+        })()}
 
         <div className="main-grid">
           {/* 侧边栏 */}
