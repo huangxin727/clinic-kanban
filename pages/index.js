@@ -67,6 +67,17 @@ function shouldAutoDone(type, services, typeServiceMap) {
   return Array.isArray(services) && services.includes(target)
 }
 
+// SVG 图标组件
+const Icon = ({ type, size = 16 }) => {
+  const icons = {
+    check: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+    detail: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    edit: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    delete: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+  }
+  return icons[type] || null
+}
+
 // 时间段工作表组件
 function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
   const today = getToday()
@@ -913,14 +924,14 @@ export default function Kanban() {
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
-                                <button className="btn-icon" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>✓</button>
+                                <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
                               )}
-                              <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}>📋</button>
+                              <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
                               {(isAdmin || t.member_id === profile.id) && (
-                                <button className="btn-icon" title="编辑" onClick={() => openEditTicket(t)}>✏️</button>
+                                <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>
                               )}
                               {isAdmin && (
-                                <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}>🗑</button>
+                                <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>
                               )}
                             </div>
                           </td>
