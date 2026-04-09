@@ -1,10 +1,9 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, KEYS } from '@/lib/db'
+import { getAllBatch, findBy, KEYS } from '@/lib/db'
 
 /**
  * 聚合初始化接口 - 一次请求返回所有数据
- * 替代前端分别调用 /tickets、/members、/stats、/settings
- * 使用 pipeline 一次读取所有 key，减少网络往返
+ * 使用 getAllBatch pipeline 单次网络往返读取所有 key
  */
 export default async function handler(req, res) {
   const member = await getUserMember(req)
@@ -14,12 +13,9 @@ export default async function handler(req, res) {
   const date = req.query.date || new Date().toISOString().split('T')[0]
   const tzOffset = parseInt(req.query.tz, 10) || 0
 
-  // 并行读取所有数据（4 个 Redis 调用同时发出）
-  const [tickets, members, logs, settingsArr] = await Promise.all([
-    getAll(KEYS.TICKETS),
-    getAll(KEYS.MEMBERS),
-    getAll(KEYS.LOGS),
-    getAll('kanban:settings'),
+  // pipeline 单次网络往返读取所有数据（1次 HTTP 请求代替 4 次）
+  const [tickets, members, logs, settingsArr] = await getAllBatch([
+    KEYS.TICKETS, KEYS.MEMBERS, KEYS.LOGS, 'kanban:settings'
   ])
 
   // 排序 members

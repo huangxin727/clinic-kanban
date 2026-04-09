@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
+import { getAll, getAllBatch, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -27,23 +27,20 @@ export default async function handler(req, res) {
   const { id } = req.query
 
   if (req.method === 'GET') {
-    const ticket = await findById(KEYS.TICKETS, id)
+    // pipeline 单次网络往返读取 ticket + members + logs
+    const [tickets, members, logs] = await getAllBatch([KEYS.TICKETS, KEYS.MEMBERS, KEYS.LOGS])
+    const ticket = tickets.find(t => t.id === id)
     if (!ticket) return res.status(404).json({ error: '工单不存在' })
 
-    // 关联 member 和 logs
-    const [allMembers, allLogs] = await Promise.all([
-      getAll(KEYS.MEMBERS),
-      getAll(KEYS.LOGS),
-    ])
-    const m = allMembers.find(m => m.id === ticket.member_id)
-    const logs = allLogs.filter(l => l.ticket_id === id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const m = members.find(m => m.id === ticket.member_id)
+    const ticketLogs = logs.filter(l => l.ticket_id === id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
     return res.json({
       success: true,
       data: {
         ...ticket,
         member: m ? { id: m.id, name: m.name, role: m.role, color: m.color } : null,
-        logs
+        logs: ticketLogs
       }
     })
   }
@@ -67,18 +64,20 @@ export default async function handler(req, res) {
     const data = await updateById(KEYS.TICKETS, id, updates)
     if (!data) return res.status(404).json({ error: '工单不存在' })
 
-    // 自动状态管理：完成工单 → 检查成员是否需要恢复空闲
-    if (updates.status === 'done') {
-      await autoSetFree(data.member_id)
-    }
-
-    // 自动状态管理：分配成员 + 状态为进行中 → 成员改为忙碌
-    if (updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))) {
-      await autoSetBusy(updates.member_id)
-    }
-
-    // 关联 member
-    const allMembers = await getAll(KEYS.MEMBERS)
+    // 并行：自动状态管理 + 关联 member 查询（减少串行等待）
+    const [, allMembers] = await Promise.all([
+      // 自动状态管理
+      (async () => {
+        if (updates.status === 'done') {
+          await autoSetFree(data.member_id)
+        }
+        if (updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))) {
+          await autoSetBusy(updates.member_id)
+        }
+      })(),
+      // 关联 member
+      getAll(KEYS.MEMBERS),
+    ])
     const m = allMembers.find(m => m.id === data.member_id)
 
     return res.json({

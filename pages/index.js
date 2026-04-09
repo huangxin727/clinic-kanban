@@ -1052,11 +1052,16 @@ export default function Kanban() {
 
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务进度</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {ALL_SERVICES.map(s => {
-                const done = (drawerTicket.services || []).includes(s)
+              {(() => {
+                // 根据工单类型只展示对应的服务进度
+                const typeService = TYPE_SERVICE_MAP[drawerTicket.type]
+                const ticketServices = drawerTicket.services || []
+                if (!typeService) {
+                  return <span style={{ color: '#9ca3af', fontSize: 13 }}>该类型未配置服务进度</span>
+                }
+                const done = ticketServices.includes(typeService)
                 return (
                   <span
-                    key={s}
                     style={{
                       padding: '6px 14px',
                       borderRadius: 16,
@@ -1070,10 +1075,10 @@ export default function Kanban() {
                       gap: 4,
                     }}
                   >
-                    {done ? '✅' : '⬜'} {s}
+                    {done ? '✅' : '⬜'} {typeService}
                   </span>
                 )
-              })}
+              })()}
             </div>
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
