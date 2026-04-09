@@ -249,26 +249,26 @@ function SettingsModal({ settings, onClose, onSave }) {
         <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
           {/* 工单类型 */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>工单类型</div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>工单类型</div>
             {types.map(t => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: '#f9fafb', borderRadius: 8 }}>
                 <input
                   value={t.label}
                   onChange={e => updateType(t.id, 'label', e.target.value)}
-                  style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 13 }}
+                  style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px' }}
                   placeholder="类型名称"
                 />
                 <select
                   value={t.cls || 'tag-other'}
                   onChange={e => updateType(t.id, 'cls', e.target.value)}
-                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px' }}
                 >
                   {clsOptions.map(c => <option key={c} value={c}>{c.replace('tag-', '')}</option>)}
                 </select>
                 <select
                   value={t.service || ''}
                   onChange={e => updateType(t.id, 'service', e.target.value)}
-                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 12, minWidth: 100 }}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', minWidth: 100 }}
                 >
                   <option value="">无对应进度</option>
                   {services.map(s => <option key={s} value={s}>{s}</option>)}
@@ -284,48 +284,48 @@ function SettingsModal({ settings, onClose, onSave }) {
                 value={newTypeName}
                 onChange={e => setNewTypeName(e.target.value)}
                 placeholder="新类型名称"
-                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px' }}
                 onKeyDown={e => e.key === 'Enter' && addType()}
               />
               <select
                 value={newTypeService}
                 onChange={e => setNewTypeService(e.target.value)}
-                style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 12 }}
+                style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px' }}
               >
                 <option value="">无对应进度</option>
                 {services.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: 13 }} onClick={addType}>添加</button>
+              <button className="btn btn-outline" style={{ padding: '6px 14px' }} onClick={addType}>添加</button>
             </div>
           </div>
 
           {/* 服务内容 */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>服务内容</div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>服务内容</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
               {services.map(s => (
                 <span key={s} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
-                  background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: 12, fontSize: 13
+                  background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: 12
                 }}>
                   {s}
                   <button
                     onClick={() => removeService(s)}
-                    style={{ background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: 14, fontWeight: 700, lineHeight: 1 }}
+                    style={{ background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', fontWeight: 700, lineHeight: 1 }}
                   >×</button>
                 </span>
               ))}
-              {!services.length && <span style={{ color: '#9ca3af', fontSize: 13 }}>暂无服务内容</span>}
+              {!services.length && <span style={{ color: '#9ca3af' }}>暂无服务内容</span>}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 value={newServiceName}
                 onChange={e => setNewServiceName(e.target.value)}
                 placeholder="新服务内容名称"
-                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px' }}
                 onKeyDown={e => e.key === 'Enter' && addService()}
               />
-              <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: 13 }} onClick={addService}>添加</button>
+              <button className="btn btn-outline" style={{ padding: '6px 14px' }} onClick={addService}>添加</button>
             </div>
           </div>
         </div>
@@ -823,7 +823,7 @@ export default function Kanban() {
                         <div className="avatar" style={{ background: m.color }}>{m.name[0]}</div>
                         <div className="member-info" style={{ minWidth: 0 }}>
                           <div className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {m.name} {m.is_admin && <span style={{ fontSize: 10, color: '#d97706' }}>★组长</span>}
+                            {m.name} {m.is_admin && <span style={{ fontSize: 'var(--font-xxs)', color: '#d97706' }}>★组长</span>}
                           </div>
                           <div className="count">{m.role} · {count}单</div>
                         </div>
@@ -834,7 +834,7 @@ export default function Kanban() {
                             title="点击切换状态（空闲/忙碌/离线）"
                             style={{
                               background: sc.bg, color: sc.color, border: 'none', borderRadius: 10,
-                              padding: '2px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                              padding: '2px 8px', fontWeight: 600, cursor: 'pointer',
                               whiteSpace: 'nowrap',
                             }}
                             onClick={(e) => { e.stopPropagation(); if (isAdmin) toggleMemberStatus(m) }}
@@ -849,7 +849,7 @@ export default function Kanban() {
                             title="删除组员"
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
-                              fontSize: 14, color: '#d1d5db', padding: 0, lineHeight: 1,
+                              color: '#d1d5db', padding: 0, lineHeight: 1,
                             }}
                             onClick={(e) => { e.stopPropagation(); removeMember(m) }}
                             onMouseEnter={e => e.target.style.color = '#ef4444'}
@@ -882,7 +882,7 @@ export default function Kanban() {
                             {(TYPE_MAP[t.type] || {}).label || t.type}
                           </span>
                         ))
-                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>暂无工单</span>
+                        : <span style={{ color: '#9ca3af' }}>暂无工单</span>
                       }
                     </div>
                   </div>
@@ -903,7 +903,7 @@ export default function Kanban() {
               {filterTimeField && (
                 <>
                   <input type="date" value={filterTimeStart} onChange={e => setFilterTimeStart(e.target.value)} title="开始日期" />
-                  <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>至</span>
+                  <span style={{ color: 'var(--text-muted)' }}>至</span>
                   <input type="date" value={filterTimeEnd} onChange={e => setFilterTimeEnd(e.target.value)} title="结束日期" />
                 </>
               )}
@@ -998,7 +998,7 @@ export default function Kanban() {
                           <td style={{ maxWidth: 240 }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             <span style={{
-                              fontSize: 13, fontWeight: 500,
+                              fontWeight: 500,
                               color: t.status === 'done' ? '#6b7280' : '#2563eb',
                               whiteSpace: 'nowrap',
                             }}>
@@ -1171,7 +1171,7 @@ export default function Kanban() {
               <button className="modal-close" onClick={() => setShowCompleteModal(false)}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8, fontSize: 14 }}>
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8 }}>
                 确认将此工单标记为<strong>已完成</strong>
               </div>
               <div className="form-row">
@@ -1213,26 +1213,26 @@ export default function Kanban() {
           </div>
           <div className="drawer-body">
             <div className="detail-row"><span className="key">工单号</span><span className="val">{drawerTicket.ticket_no || '-'}</span></div>
-            <div className="detail-row"><span className="key">客户</span><span className="val" style={{ fontSize: 15, fontWeight: 700 }}>{drawerTicket.client}</span></div>
+            <div className="detail-row"><span className="key">客户</span><span className="val" style={{ fontWeight: 700 }}>{drawerTicket.client}</span></div>
             <div className="detail-row"><span className="key">类型</span><span className="val"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></span></div>
             <div className="detail-row"><span className="key">负责人</span><span className="val">{drawerTicket.member?.name || '未分配'}</span></div>
             <div className="detail-row"><span className="key">状态</span><span className="val"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
             <div className="detail-row"><span className="key">预约时间</span><span className="val">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</span></div>
-            <div className="detail-row"><span className="key">诊所编码</span><span className="val" style={{ fontFamily: 'monospace', fontSize: 14 }}>{drawerTicket.clinic_code || '未填写'}</span></div>
+            <div className="detail-row"><span className="key">诊所编码</span><span className="val">{drawerTicket.clinic_code || '未填写'}</span></div>
             <div className="detail-row"><span className="key">新建时间</span><span className="val">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</span></div>
             <div className="detail-row"><span className="key">完成时间</span><span className="val">{drawerTicket.completed_at ? new Date(drawerTicket.completed_at).toLocaleString('zh-CN') : '-'}</span></div>
             {drawerTicket.note && <div className="detail-row"><span className="key">备注</span><span className="val" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{drawerTicket.note}</span></div>}
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📋 服务内容</div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>📋 服务内容</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {(() => {
                 // 根据工单类型只展示对应的服务内容
                 const typeService = TYPE_SERVICE_MAP[drawerTicket.type]
                 const ticketServices = drawerTicket.services || []
                 if (!typeService) {
-                  return <span style={{ color: '#9ca3af', fontSize: 13 }}>该类型未配置服务内容</span>
+                  return <span style={{ color: '#9ca3af' }}>该类型未配置服务内容</span>
                 }
                 const done = ticketServices.includes(typeService)
                 return (
@@ -1243,11 +1243,6 @@ export default function Kanban() {
                       border: done ? '1.5px solid #16a34a' : '1.5px solid #d1d5db',
                       background: done ? '#f0fdf4' : '#f9fafb',
                       color: done ? '#16a34a' : '#6b7280',
-                      fontSize: 13,
-                      fontWeight: done ? 600 : 400,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
                     }}
                   >
                     {done ? '✅' : '⬜'} {typeService}
@@ -1258,7 +1253,7 @@ export default function Kanban() {
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📝 工作记录</div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>📝 工作记录</div>
             <div className="timeline">
               {(drawerTicket.logs || []).length
                 ? drawerTicket.logs.map((l, i) => (
@@ -1270,12 +1265,12 @@ export default function Kanban() {
                     </div>
                   </div>
                 ))
-                : <div style={{ color: '#9ca3af', fontSize: 13 }}>暂无工作记录</div>
+                : <div style={{ color: '#9ca3af' }}>暂无工作记录</div>
               }
             </div>
 
             <div className="log-input-area">
-              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>快速追加工作记录</div>
+              <div style={{ color: '#6b7280', marginBottom: 6 }}>快速追加工作记录</div>
               <textarea rows={2} value={logInput} onChange={e => setLogInput(e.target.value)} placeholder="记录本次处理内容..." />
               <div style={{ textAlign: 'right', marginTop: 8 }}>
                 <button className="btn btn-primary btn-sm" onClick={addLog}>记录</button>
