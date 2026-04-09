@@ -7,19 +7,34 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: '未授权' })
 
   if (req.method === 'GET') {
-    // 先按 user_id 查找（新流程创建的成员）
-    let member = await findBy(KEYS.MEMBERS, 'user_id', user.id)
+    const { getAll } = await import('@/lib/db')
+    const allMembers = await getAll(KEYS.MEMBERS)
 
-    // 兼容旧数据：按 email 查找，并自动补上 user_id
+    // 1. 先按 user_id 查找（新流程创建的成员）
+    let member = allMembers.find(m => m.user_id === user.id)
+
+    // 2. 兼容旧数据：按 email 查找
     if (!member && user.email) {
-      const { getAll } = await import('@/lib/db')
-      const allMembers = await getAll(KEYS.MEMBERS)
       member = allMembers.find(m => m.email?.toLowerCase() === user.email.toLowerCase())
-      if (member && !member.user_id) {
-        // 自动补关联
-        await updateById(KEYS.MEMBERS, member.id, { user_id: user.id })
-        member.user_id = user.id
+    }
+
+    // 3. 兜底：如果登录邮箱是管理员邮箱，且存在无 user_id 的管理员 member，自动关联
+    if (!member && user.email) {
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+      if (adminEmail && user.email.toLowerCase() === adminEmail.toLowerCase()) {
+        const adminMember = allMembers.find(m => m.is_admin && !m.user_id)
+        if (adminMember) {
+          member = adminMember
+        }
       }
+    }
+
+    // 自动补关联 user_id 和 email
+    if (member && !member.user_id) {
+      const updates = { user_id: user.id }
+      if (!member.email && user.email) updates.email = user.email.toLowerCase()
+      await updateById(KEYS.MEMBERS, member.id, updates)
+      member = { ...member, ...updates }
     }
 
     if (!member) {
