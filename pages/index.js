@@ -94,10 +94,10 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
     return new Date(dateStr).getHours()
   }
 
-  // 生成完整24小时时间段（0:00 - 23:00）
+  // 生成时间段（8:00 - 22:00）
   const currentHour = new Date().getHours()
   const hours = []
-  for (let h = 0; h <= 23; h++) {
+  for (let h = 8; h <= 22; h++) {
     hours.push(h)
   }
   const nowHour = currentHour
