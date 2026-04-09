@@ -187,8 +187,8 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                                   background: t.status === 'done' ? '#f0fdf4' : t.status === 'inprogress' ? '#eff6ff' : '#f9fafb',
                                   color: t.status === 'done' ? '#16a34a' : t.status === 'inprogress' ? '#2563eb' : '#6b7280',
                                   fontWeight: 500,
-                                }} title={`${t.client} (${(typeMap[t.type] || {}).label || t.type})`}>
-                                  {t.client}
+                                }} title={`${(typeMap[t.type] || {}).label || t.type} - ${t.client}`}>
+                                  {(typeMap[t.type] || {}).label || t.type}
                                 </div>
                               ))
                             ) : (
