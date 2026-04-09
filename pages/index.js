@@ -428,8 +428,12 @@ export default function Kanban() {
     if (showRefresh) setRefreshing(false)
   }, [])
 
+  // 首次加载 + 自动轮询刷新（30秒）
   useEffect(() => {
-    if (profile) refreshAll()
+    if (!profile) return
+    refreshAll()
+    const timer = setInterval(() => refreshAll(), 30000)
+    return () => clearInterval(timer)
   }, [profile, refreshAll])
 
   // 过滤工单
