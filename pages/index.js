@@ -2,8 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
-// 清理旧版 localStorage 残留 token（已迁移到 sessionStorage）
+// 迁移旧版 localStorage token 到 sessionStorage（首次访问时）
 if (typeof window !== 'undefined') {
+  const oldToken = localStorage.getItem('kanban_token')
+  const oldUser = localStorage.getItem('kanban_user')
+  if (oldToken && !sessionStorage.getItem('kanban_token')) {
+    sessionStorage.setItem('kanban_token', oldToken)
+    if (oldUser) sessionStorage.setItem('kanban_user', oldUser)
+  }
+  // 清理 localStorage
   localStorage.removeItem('kanban_token')
   localStorage.removeItem('kanban_user')
 }

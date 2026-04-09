@@ -1,10 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { login } from '@/lib/client'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
 export default function LoginPage() {
   const router = useRouter()
+
+  // 迁移旧 localStorage token 到 sessionStorage
+  useEffect(() => {
+    const oldToken = localStorage.getItem('kanban_token')
+    const oldUser = localStorage.getItem('kanban_user')
+    if (oldToken && !sessionStorage.getItem('kanban_token')) {
+      sessionStorage.setItem('kanban_token', oldToken)
+      if (oldUser) sessionStorage.setItem('kanban_user', oldUser)
+    }
+    localStorage.removeItem('kanban_token')
+    localStorage.removeItem('kanban_user')
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
