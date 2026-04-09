@@ -880,7 +880,7 @@ export default function Kanban() {
                       const deadlineStr = t.deadline ? (() => { const d = new Date(t.deadline); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` })() : '-'
                       return (
                         <tr key={t.id}>
-                          <td style={{ fontWeight: 600, color: '#4b5563' }}>{t.ticket_no || '-'}</td>
+                          <td>{t.ticket_no || '-'}</td>
                           <td title={t.client}>{t.client}</td>
                           <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
                           <td>
@@ -890,11 +890,11 @@ export default function Kanban() {
                             </div>
                           </td>
                           <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                          <td style={{ fontWeight: 600, color: t.clinic_code ? '#111827' : '#9ca3af' }}>{t.clinic_code || '-'}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{time}</td>
-                          <td style={{ color: t.completed_at ? '#16a34a' : 'var(--text-muted)' }}>{doneTime}</td>
-                          <td style={{ color: t.deadline ? '#374151' : 'var(--text-muted)' }}>{deadlineStr}</td>
-                          <td style={{ maxWidth: 240, color: 'var(--text-muted)' }} title={t.note || ''}>{t.note || '-'}</td>
+                          <td>{t.clinic_code || '-'}</td>
+                          <td>{time}</td>
+                          <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{doneTime}</td>
+                          <td>{deadlineStr}</td>
+                          <td style={{ maxWidth: 240 }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
