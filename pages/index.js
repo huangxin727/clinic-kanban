@@ -74,6 +74,7 @@ const Icon = ({ type, size = 16 }) => {
     detail: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
     edit: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
     delete: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+    flag: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
   }
   return icons[type] || null
 }
@@ -602,6 +603,24 @@ export default function Kanban() {
     })
   }
 
+  // 标为需跟进（乐观更新）
+  const markUrgent = (ticketId) => {
+    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
+    // 乐观更新本地状态
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'urgent' } : t))
+    if (needReopenDrawer) {
+      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent' } : prev)
+    }
+    // 后台异步提交，失败回滚
+    api(`/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'urgent' })
+    }).then(() => refreshAll()).catch(err => {
+      alert('操作失败: ' + err.message)
+      refreshAll()
+    })
+  }
+
   // ===== 详情抽屉 =====
   const openDrawer = async (id) => {
     // 先用本地数据立即打开抽屉（秒开）
@@ -1009,6 +1028,9 @@ export default function Kanban() {
                           </td>
                           <td>
                             <div className="action-group">
+                              {t.status !== 'done' && t.status !== 'urgent' && (
+                                <button className="btn-icon btn-icon-warning" title="需跟进" onClick={(e) => { e.stopPropagation(); markUrgent(t.id) }}><Icon type="flag"/></button>
+                              )}
                               {t.status !== 'done' && (
                                 <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
                               )}
@@ -1295,6 +1317,13 @@ export default function Kanban() {
             </div>
 
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              {drawerTicket.status !== 'done' && drawerTicket.status !== 'urgent' && (
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: 1, color: '#ea580c', borderColor: '#ea580c' }}
+                  onClick={() => { markUrgent(drawerTicket.id); setShowDrawer(false) }}
+                >标为需跟进</button>
+              )}
               {drawerTicket.status !== 'done' && (
                 <button
                   className="btn btn-outline"
