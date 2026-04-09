@@ -892,6 +892,7 @@ export default function Kanban() {
                       <th>完成时间</th>
                       <th>预约时间</th>
                       <th>备注</th>
+                      <th>消耗时间</th>
                       <th>操作</th>
                     </tr>
                   </thead>
@@ -904,6 +905,25 @@ export default function Kanban() {
                       const time = fmtDT(t.created_at)
                       const doneTime = fmtDT(t.completed_at)
                       const deadlineStr = t.deadline ? (() => { const d = new Date(t.deadline); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` })() : '-'
+                      // 计算消耗时间
+                      const calcDuration = () => {
+                        if (!t.created_at) return '-'
+                        const start = new Date(t.created_at).getTime()
+                        const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
+                        const diffMs = end - start
+                        if (diffMs < 0) return '-'
+                        const minutes = Math.floor(diffMs / 60000)
+                        const hours = Math.floor(minutes / 60)
+                        const mins = minutes % 60
+                        if (hours >= 24) {
+                          const days = Math.floor(hours / 24)
+                          const remainHours = hours % 24
+                          return `${days}天${remainHours}时${mins}分`
+                        }
+                        if (hours > 0) return `${hours}时${mins}分`
+                        return `${mins}分`
+                      }
+                      const duration = calcDuration()
                       return (
                         <tr key={t.id}>
                           <td>{t.ticket_no || '-'}</td>
@@ -921,6 +941,15 @@ export default function Kanban() {
                           <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{doneTime}</td>
                           <td>{deadlineStr}</td>
                           <td style={{ maxWidth: 240 }} title={t.note || ''}>{t.note || '-'}</td>
+                          <td>
+                            <span style={{
+                              fontSize: 13, fontWeight: 500,
+                              color: t.status === 'done' ? '#6b7280' : '#2563eb',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {t.status === 'done' && !t.completed_at ? '-' : duration}
+                            </span>
+                          </td>
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
