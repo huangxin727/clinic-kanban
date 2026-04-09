@@ -1,5 +1,5 @@
 import { getUser, getUserMember } from '@/lib/helpers'
-import { updateById, removeById, findBy, KEYS } from '@/lib/db'
+import { updateById, removeById, findById, findBy, KEYS } from '@/lib/db'
 
 export default async function handler(req, res) {
   const user = await getUser(req)
@@ -25,8 +25,17 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     if (!me.is_admin) return res.status(403).json({ error: '仅组长可删除' })
 
+    const member = await findById(KEYS.MEMBERS, id)
+    if (!member) return res.status(404).json({ error: '组员不存在' })
+
     const ok = await removeById(KEYS.MEMBERS, id)
     if (!ok) return res.status(404).json({ error: '组员不存在' })
+
+    // 同时删除关联的登录账号
+    if (member.user_id) {
+      await removeById(KEYS.USERS, member.user_id)
+    }
+
     return res.json({ success: true })
   }
 

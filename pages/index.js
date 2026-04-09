@@ -54,6 +54,149 @@ function shouldAutoDone(type, services, typeServiceMap) {
   return Array.isArray(services) && services.includes(target)
 }
 
+// 时间段工作表组件
+function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
+  const today = getToday()
+
+  // 筛选今日工单
+  const todayTickets = tickets.filter(t => t.ticket_date === today || (t.created_at && t.created_at.startsWith(today)))
+
+  // 按成员分组
+  const groupedByMember = {}
+  members.forEach(m => { groupedByMember[m.id] = [] })
+  todayTickets.forEach(t => {
+    if (t.member_id && groupedByMember[t.member_id]) {
+      groupedByMember[t.member_id].push(t)
+    }
+  })
+
+  // 每个成员按接单时间排序
+  Object.keys(groupedByMember).forEach(mid => {
+    groupedByMember[mid].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  })
+
+  // 生成时间段（8:00 - 22:00，每小时一格）
+  const hours = []
+  for (let h = 8; h <= 22; h++) {
+    hours.push(h)
+  }
+
+  // 判断某个工单在哪个时间段
+  const getHour = (dateStr) => {
+    if (!dateStr) return -1
+    return new Date(dateStr).getHours()
+  }
+
+  // 判断工单是否在进行中的时间段
+  const isTicketInHour = (ticket, hour) => {
+    if (!ticket.created_at) return false
+    const startHour = new Date(ticket.created_at).getHours()
+    const startMin = new Date(ticket.created_at).getMinutes()
+    const endHour = ticket.updated_at ? new Date(ticket.updated_at).getHours() : (ticket.status === 'done' ? startHour : 22)
+    const endMin = ticket.updated_at ? new Date(ticket.updated_at).getMinutes() : 59
+    if (ticket.status !== 'done') {
+      // 进行中的工单持续到当前或22点
+      const now = new Date()
+      const currentEnd = now.getHours() === new Date().getHours() ? now.getHours() : 22
+      if (hour > startHour && hour <= Math.max(currentEnd, startHour + 1)) return true
+      if (hour === startHour) return true
+    }
+    return hour >= startHour && hour <= endHour
+  }
+
+  // 简化：工单在哪个小时开始的就显示在哪个格子里
+  const getTicketHour = (ticket) => {
+    return getHour(ticket.created_at)
+  }
+
+  return (
+    <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal" style={{ maxWidth: 900, width: '95vw', maxHeight: '85vh', overflow: 'auto' }}>
+        <div className="modal-header">
+          <h3>📅 今日工作时间段表</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+            {today} · 显示每位成员今日各时段的工作安排
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 2, padding: '8px 12px', borderBottom: '2px solid #e5e7eb', textAlign: 'left', minWidth: 80, fontWeight: 600 }}>成员</th>
+                  {hours.map(h => (
+                    <th key={h} style={{ padding: '6px 4px', borderBottom: '2px solid #e5e7eb', minWidth: 68, fontWeight: 600, fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      {h}:00-{h === 22 ? '23:59' : (h + 1) + ':00'}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {members.map(m => {
+                  const mTickets = groupedByMember[m.id] || []
+                  return (
+                    <tr key={m.id}>
+                      <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1, padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: 13 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                          {m.name}
+                        </span>
+                      </td>
+                      {hours.map(h => {
+                        // 找出这个小时开始的工单
+                        const hourTickets = mTickets.filter(t => getTicketHour(t) === h)
+                        // 检查是否有正在进行（跨时段）的工单
+                        const ongoingTickets = mTickets.filter(t => getTicketHour(t) < h && t.status === 'inprogress')
+
+                        const content = hourTickets.length > 0 ? hourTickets : (ongoingTickets.length > 0 ? ongoingTickets : null)
+
+                        return (
+                          <td key={h} style={{
+                            padding: 4,
+                            borderBottom: '1px solid #f3f4f6',
+                            textAlign: 'center',
+                            verticalAlign: 'top',
+                          }}>
+                            {content ? (
+                              content.map(t => (
+                                <div key={t.id} style={{
+                                  padding: '3px 6px',
+                                  marginBottom: 2,
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  lineHeight: 1.3,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  background: t.status === 'done' ? '#f0fdf4' : t.status === 'inprogress' ? '#eff6ff' : '#f9fafb',
+                                  color: t.status === 'done' ? '#16a34a' : t.status === 'inprogress' ? '#2563eb' : '#6b7280',
+                                  fontWeight: 500,
+                                }} title={`${t.client} (${(typeMap[t.type] || {}).label || t.type})`}>
+                                  {t.client}
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ padding: '3px 6px', fontSize: 11, color: '#d1d5db' }}>空闲</div>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 设置面板组件
 function SettingsModal({ settings, onClose, onSave }) {
   const [types, setTypes] = useState(settings?.types || [])
@@ -216,6 +359,9 @@ export default function Kanban() {
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [completeInfo, setCompleteInfo] = useState({ ticketId: null, serviceName: null })
   const [clinicCodeInput, setClinicCodeInput] = useState('')
+
+  // 时间表弹窗
+  const [showTimelineModal, setShowTimelineModal] = useState(false)
 
   // 表单
   const [form, setForm] = useState({})
@@ -673,6 +819,7 @@ export default function Kanban() {
               </select>
               <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 160 }} />
               <div className="spacer" />
+              <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
             </div>
 
@@ -903,6 +1050,17 @@ export default function Kanban() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 时间段工作表弹窗 */}
+      {showTimelineModal && (
+        <TimelineModal
+          members={members}
+          tickets={tickets}
+          typeMap={TYPE_MAP}
+          statusMap={STATUS_MAP}
+          onClose={() => setShowTimelineModal(false)}
+        />
       )}
 
       {/* 工单详情抽屉 */}
