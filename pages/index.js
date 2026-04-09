@@ -537,8 +537,9 @@ export default function Kanban() {
     if (!ticketId) return
 
     setCompletingTicket(true)
+    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
     try {
-      await api(`/tickets/${ticketId}`, {
+      const putRes = await api(`/tickets/${ticketId}`, {
         method: 'PUT',
         body: JSON.stringify({
           status: 'done',
@@ -546,14 +547,29 @@ export default function Kanban() {
         })
       })
 
+      // 立即关闭弹窗 + 更新本地状态（不等 refreshAll）
       setShowCompleteModal(false)
+      setCompletingTicket(false)
+
+      // 用 PUT 返回的数据乐观更新本地列表，避免等 refreshAll
+      setTickets(prev => prev.map(t => {
+        if (t.id === ticketId) {
+          return {
+            ...t,
+            status: 'done',
+            clinic_code: clinicCodeInput.trim(),
+            completed_at: putRes.data?.completed_at || new Date().toISOString(),
+            member: putRes.data?.member || t.member,
+          }
+        }
+        return t
+      }))
+
+      // 后台静默刷新全量数据 + 更新抽屉
       refreshAll()
-      if (drawerTicket && drawerTicket.id === ticketId) {
-        openDrawer(ticketId)
-      }
+      if (needReopenDrawer) openDrawer(ticketId)
     } catch (err) {
       alert('操作失败: ' + err.message)
-    } finally {
       setCompletingTicket(false)
     }
   }
