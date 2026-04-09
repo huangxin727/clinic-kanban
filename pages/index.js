@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
+// 清理旧版 localStorage 残留 token（已迁移到 sessionStorage）
+if (typeof window !== 'undefined') {
+  localStorage.removeItem('kanban_token')
+  localStorage.removeItem('kanban_user')
+}
+
 const TYPE_MAP = {
   init: { label: '数据初始化', cls: 'tag-init' },
   training: { label: '培训', cls: 'tag-training' },
