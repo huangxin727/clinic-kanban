@@ -442,6 +442,7 @@ export default function Kanban() {
       setStats(d.stats || { total: 0, inprogress: 0, done: 0, urgent: 0 })
       setMemberStats(d.memberStats || [])
       if (d.settings) setSettings(d.settings)
+      return d
     } catch (err) {
       console.error('刷新失败:', err)
     }
@@ -687,19 +688,24 @@ export default function Kanban() {
   const addLog = async () => {
     if (!logInput.trim() || !drawerTicket) return
     try {
+      const newContent = logInput.trim()
+      // 1. 写入工作记录日志
       await api(`/tickets/${drawerTicket.id}/logs`, {
         method: 'POST',
-        body: JSON.stringify({ content: logInput.trim() })
+        body: JSON.stringify({ content: newContent })
       })
-      // 追加到工单的 note（用换行分隔，保留历史）
-      const existingNote = drawerTicket.note || ''
-      const newNote = existingNote ? `${existingNote}\n${logInput.trim()}` : logInput.trim()
+      // 2. 刷新列表，拿到最新的工单数据
+      const d = await refreshAll()
+      // 3. 从刷新后的数据中取最新 note，追加新内容
+      const latestTicket = (d?.tickets || []).find(t => t.id === drawerTicket.id)
+      const existingNote = latestTicket?.note || ''
+      const newNote = existingNote ? `${existingNote}\n${newContent}` : newContent
       await api(`/tickets/${drawerTicket.id}`, {
         method: 'PUT',
         body: JSON.stringify({ note: newNote })
       })
       setLogInput('')
-      // 先刷新列表，再刷新抽屉，避免竞态
+      // 4. 再次刷新，确保列表和抽屉数据一致
       await refreshAll()
       openDrawer(drawerTicket.id)
     } catch (err) {
