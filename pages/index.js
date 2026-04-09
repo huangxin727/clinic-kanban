@@ -1065,7 +1065,7 @@ export default function Kanban() {
                           <td>{time}</td>
                           <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{doneTime}</td>
                           <td>{deadlineStr}</td>
-                          <td style={{ maxWidth: 240, whiteSpace: 'pre-wrap', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
+                          <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             {t.status === 'done' && t.completed_at ? (
                               <span style={{ fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>{duration}</span>
@@ -1401,7 +1401,7 @@ export default function Kanban() {
                     <div className="tl-dot">{i + 1}</div>
                     <div className="tl-content">
                       <div className="tl-time">{new Date(l.created_at).toLocaleString('zh-CN')}</div>
-                      <div className="tl-note">{l.content}</div>
+                      <div className="tl-note" title={l.content}>{l.content}</div>
                     </div>
                   </div>
                 ))
