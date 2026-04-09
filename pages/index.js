@@ -934,8 +934,8 @@ export default function Kanban() {
                   </select>
                 </div>
                 <div className="form-row">
-                  <label>预计完成时间</label>
-                  <input type="date" value={form.deadline || ''} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+                  <label>预约时间</label>
+                  <input type="datetime-local" value={form.deadline || ''} onChange={e => setForm({ ...form, deadline: e.target.value })} />
                 </div>
               </div>
               <div className="form-row">
@@ -1078,9 +1078,11 @@ export default function Kanban() {
             <div className="detail-row"><span className="key">类型</span><span className="val"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></span></div>
             <div className="detail-row"><span className="key">负责人</span><span className="val">{drawerTicket.member?.name || '未分配'}</span></div>
             <div className="detail-row"><span className="key">状态</span><span className="val"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
-            <div className="detail-row"><span className="key">截止日期</span><span className="val">{drawerTicket.deadline || '未设置'}</span></div>
+            <div className="detail-row"><span className="key">预约时间</span><span className="val">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</span></div>
             <div className="detail-row"><span className="key">诊所编码</span><span className="val" style={{ fontFamily: 'monospace', fontSize: 14 }}>{drawerTicket.clinic_code || '未填写'}</span></div>
-            <div className="detail-row"><span className="key">接单时间</span><span className="val">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</span></div>
+            <div className="detail-row"><span className="key">新建时间</span><span className="val">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</span></div>
+            <div className="detail-row"><span className="key">完成时间</span><span className="val">{drawerTicket.completed_at ? new Date(drawerTicket.completed_at).toLocaleString('zh-CN') : '-'}</span></div>
+            {drawerTicket.note && <div className="detail-row"><span className="key">备注</span><span className="val" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{drawerTicket.note}</span></div>}
 
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
