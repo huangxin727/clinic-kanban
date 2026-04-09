@@ -1,5 +1,5 @@
 import { getUser } from '@/lib/helpers'
-import { findBy, KEYS, addToList } from '@/lib/db'
+import { findBy, updateById, KEYS, addToList } from '@/lib/db'
 
 export default async function handler(req, res) {
   // 先验证用户身份
@@ -7,9 +7,21 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: '未授权' })
 
   if (req.method === 'GET') {
-    // GET 时查找对应的 member
-    const { findBy: find } = await import('@/lib/db')
-    const member = await findBy(KEYS.MEMBERS, 'user_id', user.id)
+    // 先按 user_id 查找（新流程创建的成员）
+    let member = await findBy(KEYS.MEMBERS, 'user_id', user.id)
+
+    // 兼容旧数据：按 email 查找，并自动补上 user_id
+    if (!member && user.email) {
+      const { getAll } = await import('@/lib/db')
+      const allMembers = await getAll(KEYS.MEMBERS)
+      member = allMembers.find(m => m.email?.toLowerCase() === user.email.toLowerCase())
+      if (member && !member.user_id) {
+        // 自动补关联
+        await updateById(KEYS.MEMBERS, member.id, { user_id: user.id })
+        member.user_id = user.id
+      }
+    }
+
     if (!member) {
       return res.json({ success: true, data: null, email: user.email })
     }
