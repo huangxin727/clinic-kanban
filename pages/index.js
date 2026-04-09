@@ -88,13 +88,6 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
     groupedByMember[mid].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
   })
 
-  // 生成时间段（8:00 - 当前小时，动态扩展到23点）
-  const currentHour = new Date().getHours()
-  const hours = []
-  for (let h = 8; h <= Math.max(22, Math.min(currentHour, 23)); h++) {
-    hours.push(h)
-  }
-
   // 用本地时间判断工单所在小时
   const getHour = (dateStr) => {
     if (!dateStr) return -1
@@ -102,27 +95,19 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
     return d.getHours()
   }
 
-  // 判断工单是否在进行中的时间段
-  const isTicketInHour = (ticket, hour) => {
-    if (!ticket.created_at) return false
-    const startHour = new Date(ticket.created_at).getHours()
-    const startMin = new Date(ticket.created_at).getMinutes()
-    const endHour = ticket.updated_at ? new Date(ticket.updated_at).getHours() : (ticket.status === 'done' ? startHour : 22)
-    const endMin = ticket.updated_at ? new Date(ticket.updated_at).getMinutes() : 59
-    if (ticket.status !== 'done') {
-      // 进行中的工单持续到当前或22点
-      const now = new Date()
-      const currentEnd = now.getHours() === new Date().getHours() ? now.getHours() : 22
-      if (hour > startHour && hour <= Math.max(currentEnd, startHour + 1)) return true
-      if (hour === startHour) return true
-    }
-    return hour >= startHour && hour <= endHour
-  }
-
   // 简化：工单在哪个小时开始的就显示在哪个格子里
   const getTicketHour = (ticket) => {
     return getHour(ticket.created_at)
   }
+
+  // 只收集有工单安排的时间段（按创建时间的小时）
+  const allBusyHours = new Set()
+  todayTickets.forEach(t => {
+    const h = getTicketHour(t)
+    if (h >= 0) allBusyHours.add(h)
+  })
+  // 排序后生成时间列，只保留有安排的小时
+  const hours = Array.from(allBusyHours).sort((a, b) => a - b)
 
   return (
     <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -161,10 +146,6 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                       {hours.map(h => {
                         // 找出这个小时开始的工单
                         const hourTickets = mTickets.filter(t => getTicketHour(t) === h)
-                        // 检查是否有正在进行（跨时段）的工单
-                        const ongoingTickets = mTickets.filter(t => getTicketHour(t) < h && t.status === 'inprogress')
-
-                        const content = hourTickets.length > 0 ? hourTickets : (ongoingTickets.length > 0 ? ongoingTickets : null)
 
                         return (
                           <td key={h} style={{
@@ -173,28 +154,24 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                             textAlign: 'center',
                             verticalAlign: 'top',
                           }}>
-                            {content ? (
-                              content.map(t => (
-                                <div key={t.id} style={{
-                                  padding: '8px 12px',
-                                  marginBottom: 4,
-                                  borderRadius: 8,
-                                  fontSize: 20,
-                                  lineHeight: 1.4,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  background: t.status === 'done' ? '#f0fdf4' : t.status === 'inprogress' ? '#eff6ff' : '#f9fafb',
-                                  color: t.status === 'done' ? '#16a34a' : t.status === 'inprogress' ? '#2563eb' : '#6b7280',
-                                  fontWeight: 500,
-                                }} title={`${(typeMap[t.type] || {}).label || t.type} - ${t.client}`}>
-                                  {(typeMap[t.type] || {}).label || t.type}
-                                  {t.client && <div style={{ fontSize: 16, fontWeight: 400, marginTop: 3, opacity: 0.85 }}>{t.client}</div>}
-                                </div>
-                              ))
-                            ) : (
-                              <div style={{ padding: '8px 12px', fontSize: 18, color: '#d1d5db' }}>空闲</div>
-                            )}
+                            {hourTickets.length > 0 ? hourTickets.map(t => (
+                              <div key={t.id} style={{
+                                padding: '8px 12px',
+                                marginBottom: 4,
+                                borderRadius: 8,
+                                fontSize: 20,
+                                lineHeight: 1.4,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                background: t.status === 'done' ? '#f0fdf4' : t.status === 'inprogress' ? '#eff6ff' : '#f9fafb',
+                                color: t.status === 'done' ? '#16a34a' : t.status === 'inprogress' ? '#2563eb' : '#6b7280',
+                                fontWeight: 500,
+                              }} title={`${(typeMap[t.type] || {}).label || t.type} - ${t.client}`}>
+                                {(typeMap[t.type] || {}).label || t.type}
+                                {t.client && <div style={{ fontSize: 16, fontWeight: 400, marginTop: 3, opacity: 0.85 }}>{t.client}</div>}
+                              </div>
+                            )) : null}
                           </td>
                         )
                       })}
