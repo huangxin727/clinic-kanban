@@ -91,23 +91,16 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
   // 用本地时间判断工单所在小时
   const getHour = (dateStr) => {
     if (!dateStr) return -1
-    const d = new Date(dateStr)
-    return d.getHours()
+    return new Date(dateStr).getHours()
   }
 
-  // 简化：工单在哪个小时开始的就显示在哪个格子里
-  const getTicketHour = (ticket) => {
-    return getHour(ticket.created_at)
+  // 生成完整时间段（8:00 - 当前时间，工作时段最大到22点）
+  const currentHour = new Date().getHours()
+  const hours = []
+  for (let h = 8; h <= Math.max(22, Math.min(currentHour, 23)); h++) {
+    hours.push(h)
   }
-
-  // 只收集有工单安排的时间段（按创建时间的小时）
-  const allBusyHours = new Set()
-  todayTickets.forEach(t => {
-    const h = getTicketHour(t)
-    if (h >= 0) allBusyHours.add(h)
-  })
-  // 排序后生成时间列，只保留有安排的小时
-  const hours = Array.from(allBusyHours).sort((a, b) => a - b)
+  const nowHour = currentHour
 
   return (
     <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -144,8 +137,16 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                         </span>
                       </td>
                       {hours.map(h => {
-                        // 找出这个小时开始的工单
-                        const hourTickets = mTickets.filter(t => getTicketHour(t) === h)
+                        const isCurrentHour = h === nowHour
+                        // 当前时段：显示在这个时段开始或之前开始且未完成的工单
+                        let hourTickets = []
+                        if (isCurrentHour) {
+                          hourTickets = mTickets.filter(t => {
+                            const startH = getHour(t.created_at)
+                            // 在当前时段开始，或在更早时段开始且仍未完成
+                            return (startH === h) || (startH < h && t.status !== 'done')
+                          })
+                        }
 
                         return (
                           <td key={h} style={{
@@ -154,7 +155,7 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                             textAlign: 'center',
                             verticalAlign: 'top',
                           }}>
-                            {hourTickets.length > 0 ? hourTickets.map(t => (
+                            {isCurrentHour && hourTickets.length > 0 ? hourTickets.map(t => (
                               <div key={t.id} style={{
                                 padding: '8px 12px',
                                 marginBottom: 4,
