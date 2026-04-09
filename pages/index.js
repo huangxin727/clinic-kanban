@@ -359,6 +359,9 @@ export default function Kanban() {
   const [selectedMember, setSelectedMember] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterTimeField, setFilterTimeField] = useState('')
+  const [filterTimeStart, setFilterTimeStart] = useState('')
+  const [filterTimeEnd, setFilterTimeEnd] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -458,6 +461,15 @@ export default function Kanban() {
     if (selectedMember && t.member_id !== selectedMember) return false
     if (filterType && t.type !== filterType) return false
     if (filterStatus && t.status !== filterStatus) return false
+    if (filterTimeField && filterTimeStart) {
+      const fieldMap = { created_at: t.created_at, completed_at: t.completed_at, deadline: t.deadline }
+      const val = fieldMap[filterTimeField]
+      if (!val) return false
+      const start = new Date(filterTimeStart).getTime()
+      const end = filterTimeEnd ? new Date(filterTimeEnd + 'T23:59:59').getTime() : start + 86400000
+      const ts = new Date(val).getTime()
+      if (ts < start || ts > end) return false
+    }
     if (search) {
       const s = search.toLowerCase()
       return (t.client || '').toLowerCase().includes(s) || (t.ticket_no || '').toLowerCase().includes(s)
@@ -814,6 +826,19 @@ export default function Kanban() {
                 {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 160 }} />
+              <select value={filterTimeField} onChange={e => setFilterTimeField(e.target.value)} title="时间筛选">
+                <option value="">时间筛选</option>
+                <option value="created_at">创建时间</option>
+                <option value="completed_at">完成时间</option>
+                <option value="deadline">预约时间</option>
+              </select>
+              {filterTimeField && (
+                <>
+                  <input type="date" value={filterTimeStart} onChange={e => setFilterTimeStart(e.target.value)} title="开始日期" />
+                  <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>至</span>
+                  <input type="date" value={filterTimeEnd} onChange={e => setFilterTimeEnd(e.target.value)} title="结束日期" />
+                </>
+              )}
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
