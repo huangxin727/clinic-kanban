@@ -189,6 +189,7 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                                   fontWeight: 500,
                                 }} title={`${(typeMap[t.type] || {}).label || t.type} - ${t.client}`}>
                                   {(typeMap[t.type] || {}).label || t.type}
+                                  {t.client && <div style={{ fontSize: 10, fontWeight: 400, marginTop: 1, opacity: 0.85 }}>{t.client}</div>}
                                 </div>
                               ))
                             ) : (
