@@ -813,19 +813,6 @@ export default function Kanban() {
           {/* 工单区 */}
           <div className="board">
             <div className="toolbar">
-              <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
-                <option value="">全部组员</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <select value={filterType} onChange={e => setFilterType(e.target.value)}>
-                <option value="">全部类型</option>
-                {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">全部状态</option>
-                {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 160 }} />
               <select value={filterTimeField} onChange={e => setFilterTimeField(e.target.value)} title="时间筛选">
                 <option value="">时间筛选</option>
                 <option value="created_at">创建时间</option>
@@ -839,9 +826,19 @@ export default function Kanban() {
                   <input type="date" value={filterTimeEnd} onChange={e => setFilterTimeEnd(e.target.value)} title="结束日期" />
                 </>
               )}
-              {(filterTimeField || filterTimeStart) && (
-                <button className="btn btn-sm" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }} onClick={() => { setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd('') }}>✕ 清除时间</button>
-              )}
+              <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
+                <option value="">全部组员</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+                <option value="">全部类型</option>
+                {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                <option value="">全部状态</option>
+                {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 160 }} />
               {(selectedMember || filterType || filterStatus || filterTimeField || filterTimeStart || search) && (
                 <button className="btn btn-sm" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }} onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd(''); setSearch('') }}>↺ 重置筛选</button>
               )}
