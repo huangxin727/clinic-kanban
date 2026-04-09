@@ -1003,13 +1003,9 @@ export default function Kanban() {
                           <td>{deadlineStr}</td>
                           <td style={{ maxWidth: 240 }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
-                            <span style={{
-                              fontWeight: 500,
-                              color: t.status === 'done' ? '#6b7280' : '#2563eb',
-                              whiteSpace: 'nowrap',
-                            }}>
-                              {t.status === 'done' && !t.completed_at ? '-' : duration}
-                            </span>
+                            {t.status === 'done' && t.completed_at ? (
+                              <span style={{ fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>{duration}</span>
+                            ) : '-'}
                           </td>
                           <td>
                             <div className="action-group">
