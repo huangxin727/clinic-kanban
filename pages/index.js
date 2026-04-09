@@ -432,7 +432,7 @@ export default function Kanban() {
   useEffect(() => {
     if (!profile) return
     refreshAll()
-    const timer = setInterval(() => refreshAll(), 30000)
+    const timer = setInterval(() => refreshAll(), 10000)
     return () => clearInterval(timer)
   }, [profile, refreshAll])
 
