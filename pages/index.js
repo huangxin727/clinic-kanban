@@ -1394,15 +1394,13 @@ export default function Kanban() {
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
             <div style={{ fontWeight: 600, marginBottom: 8 }}>📝 工作记录</div>
-            <div className="timeline">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(drawerTicket.logs || []).length
                 ? drawerTicket.logs.map((l, i) => (
-                  <div key={i} className="timeline-item">
-                    <div className="tl-dot">{i + 1}</div>
-                    <div className="tl-content">
-                      <div className="tl-time">{new Date(l.created_at).toLocaleString('zh-CN')}</div>
-                      <div className="tl-note" title={l.content}>{l.content}</div>
-                    </div>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <span style={{ color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>{new Date(l.created_at).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12: false })}</span>
+                    <span style={{ color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>#{i + 1}</span>
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} title={l.content}>{l.content}</span>
                   </div>
                 ))
                 : <div style={{ color: '#9ca3af' }}>暂无工作记录</div>
