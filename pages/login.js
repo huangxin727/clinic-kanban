@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { login, register } from '@/lib/client'
+import { login } from '@/lib/client'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
@@ -9,7 +9,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [mode, setMode] = useState('login') // login | register
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -17,11 +16,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      if (mode === 'login') {
-        await login(email, password)
-      } else {
-        await register(email, password)
-      }
+      await login(email, password)
       router.push('/')
     } catch (err) {
       setError(err.message)
@@ -55,7 +50,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder={mode === 'register' ? '至少6位密码' : '请输入密码'}
+                placeholder="请输入密码"
                 required
                 minLength={6}
               />
@@ -68,16 +63,12 @@ export default function LoginPage() {
             )}
 
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? '请稍候...' : mode === 'login' ? '登 录' : '注 册'}
+              {loading ? '请稍候...' : '登 录'}
             </button>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-muted)' }}>
-            {mode === 'login' ? (
-              <>还没有账号？ <a href="#" onClick={() => { setMode('register'); setError('') }} style={{ color: 'var(--primary)' }}>注册一个</a></>
-            ) : (
-              <>已有账号？ <a href="#" onClick={() => { setMode('login'); setError('') }} style={{ color: 'var(--primary)' }}>去登录</a></>
-            )}
+            请联系组长获取登录账号
           </div>
         </div>
       </div>

@@ -223,7 +223,7 @@ export default function Kanban() {
   const [logInput, setLogInput] = useState('')
 
   // 成员表单
-  const [memberForm, setMemberForm] = useState({ name: '', role: '全能', status: 'free' })
+  const [memberForm, setMemberForm] = useState({ name: '', role: '全能', status: 'free', email: '', password: '' })
 
   // 动态配置（类型 + 服务进度）
   const [settings, setSettings] = useState(null)
@@ -432,13 +432,15 @@ export default function Kanban() {
   // ===== 组员操作 =====
   const saveMember = async () => {
     if (!memberForm.name?.trim()) return alert('请填写姓名')
+    if (!memberForm.email?.trim()) return alert('请填写登录邮箱')
+    if (!memberForm.password || memberForm.password.length < 6) return alert('密码至少6位')
     try {
       await api('/members', {
         method: 'POST',
         body: JSON.stringify(memberForm)
       })
       setShowMemberModal(false)
-      setMemberForm({ name: '', role: '全能', status: 'free' })
+      setMemberForm({ name: '', role: '全能', status: 'free', email: '', password: '' })
       refreshAll()
     } catch (err) {
       alert(err.message)
@@ -816,6 +818,14 @@ export default function Kanban() {
               <div className="form-row">
                 <label>姓名 *</label>
                 <input value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="组员姓名" />
+              </div>
+              <div className="form-row">
+                <label>登录邮箱 *</label>
+                <input type="email" value={memberForm.email} onChange={e => setMemberForm({ ...memberForm, email: e.target.value })} placeholder="用于登录的邮箱" />
+              </div>
+              <div className="form-row">
+                <label>登录密码 *</label>
+                <input type="password" value={memberForm.password} onChange={e => setMemberForm({ ...memberForm, password: e.target.value })} placeholder="至少6位密码" />
               </div>
               <div className="form-row">
                 <label>主职方向</label>

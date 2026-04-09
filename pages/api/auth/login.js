@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     let user
     if (mode === 'register') {
-      user = await registerUser(email, password)
+      return res.status(403).json({ error: '已关闭公开注册，请联系组长添加账号' })
     } else {
       user = await loginUser(email, password)
     }
