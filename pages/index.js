@@ -697,8 +697,9 @@ export default function Kanban() {
         body: JSON.stringify({ note: logInput.trim() })
       })
       setLogInput('')
-      openDrawer(drawerTicket.id) // 刷新
-      refreshAll()
+      // 先刷新列表，再刷新抽屉，避免竞态
+      await refreshAll()
+      openDrawer(drawerTicket.id)
     } catch (err) {
       alert(err.message)
     }
