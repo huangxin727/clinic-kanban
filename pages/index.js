@@ -424,8 +424,6 @@ export default function Kanban() {
       if (d.settings) setSettings(d.settings)
     } catch (err) {
       console.error('刷新失败:', err)
-      // 调试：首次刷新失败时提示
-      if (members.length === 0) alert('数据加载失败: ' + err.message)
     }
     if (showRefresh) setRefreshing(false)
   }, [])
