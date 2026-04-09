@@ -484,33 +484,61 @@ export default function Kanban() {
     setShowTicketModal(true)
   }
 
-  const saveTicket = async () => {
+  const saveTicket = () => {
     if (!form.client?.trim()) return alert('请填写客户名称')
-    if (savingTicket) return
-    setSavingTicket(true)
-    try {
-      // 根据工单类型判断对应服务内容是否完成，自动标记状态
-      const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
-      const payload = { ...form, services, ticket_date: getToday(), status: autoDone ? 'done' : (form.status || 'inprogress') }
-      if (editMode) {
-        await api(`/tickets/${form.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload)
-        })
-      } else {
-        await api('/tickets', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        })
+
+    const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
+    const payload = { ...form, services, ticket_date: getToday(), status: autoDone ? 'done' : (form.status || 'inprogress') }
+    const now = new Date().toISOString()
+
+    // 立即关闭弹窗
+    setShowTicketModal(false)
+
+    if (editMode) {
+      // 编辑模式：乐观更新本地列表
+      setTickets(prev => prev.map(t => {
+        if (t.id === form.id) {
+          return { ...t, ...payload, updated_at: now }
+        }
+        return t
+      }))
+      // 如果抽屉打开着同一个工单，同步更新
+      setDrawerTicket(prev => prev && prev.id === form.id ? { ...prev, ...payload, updated_at: now } : prev)
+
+      // 后台异步提交
+      api(`/tickets/${form.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      }).then(() => refreshAll()).catch(err => {
+        alert('保存失败: ' + err.message)
+        refreshAll()
+      })
+    } else {
+      // 新建模式：乐观插入本地列表顶部
+      const tempId = 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+      const currentMember = members.find(m => m.id === (payload.member_id || profile?.id))
+      const newTicket = {
+        ...payload,
+        id: tempId,
+        created_at: now,
+        updated_at: now,
+        member: currentMember ? { id: currentMember.id, name: currentMember.name, role: currentMember.role, color: currentMember.color } : null,
       }
-      setShowTicketModal(false)
-      setForm({})
-      refreshAll()
-    } catch (err) {
-      alert('保存失败: ' + err.message)
-    } finally {
-      setSavingTicket(false)
+      setTickets(prev => [newTicket, ...prev])
+
+      // 后台异步提交
+      api('/tickets', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }).then(() => refreshAll()).catch(err => {
+        alert('保存失败: ' + err.message)
+        refreshAll()
+      })
     }
+
+    setForm({})
+    setEditMode(false)
+    setServices([])
   }
 
   const deleteTicket = async (id) => {
