@@ -368,6 +368,7 @@ export default function Kanban() {
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [completeInfo, setCompleteInfo] = useState({ ticketId: null, serviceName: null })
   const [clinicCodeInput, setClinicCodeInput] = useState('')
+  const [completingTicket, setCompletingTicket] = useState(false)
 
   // 时间表弹窗
   const [showTimelineModal, setShowTimelineModal] = useState(false)
@@ -531,9 +532,11 @@ export default function Kanban() {
 
   const confirmCompleteTicket = async () => {
     if (!clinicCodeInput.trim()) return alert('请填写诊所编码')
+    if (completingTicket) return
     const { ticketId } = completeInfo
     if (!ticketId) return
 
+    setCompletingTicket(true)
     try {
       await api(`/tickets/${ticketId}`, {
         method: 'PUT',
@@ -550,6 +553,8 @@ export default function Kanban() {
       }
     } catch (err) {
       alert('操作失败: ' + err.message)
+    } finally {
+      setCompletingTicket(false)
     }
   }
 
@@ -1132,7 +1137,7 @@ export default function Kanban() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={confirmCompleteTicket}>确认完成</button>
+              <button className="btn btn-primary" onClick={confirmCompleteTicket} disabled={completingTicket}>{completingTicket ? '提交中...' : '确认完成'}</button>
             </div>
           </div>
         </div>
