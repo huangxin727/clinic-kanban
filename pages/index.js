@@ -839,6 +839,9 @@ export default function Kanban() {
                   <input type="date" value={filterTimeEnd} onChange={e => setFilterTimeEnd(e.target.value)} title="结束日期" />
                 </>
               )}
+              {(filterTimeField || filterTimeStart) && (
+                <button className="btn btn-sm" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }} onClick={() => { setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd('') }}>✕ 清除时间</button>
+              )}
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
