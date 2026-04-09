@@ -874,9 +874,10 @@ export default function Kanban() {
                       const m = t.member || {}
                       const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                       const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
-                      const time = t.created_at ? new Date(t.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
-                      const doneTime = t.completed_at ? new Date(t.completed_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
-                      const deadlineStr = t.deadline || '-'
+                      const fmtDT = (iso) => { if (!iso) return '-' ; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
+                      const time = fmtDT(t.created_at)
+                      const doneTime = fmtDT(t.completed_at)
+                      const deadlineStr = t.deadline ? (() => { const d = new Date(t.deadline); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` })() : '-'
                       return (
                         <tr key={t.id}>
                           <td style={{ fontWeight: 600, color: '#4b5563' }}>{t.ticket_no || '-'}</td>
