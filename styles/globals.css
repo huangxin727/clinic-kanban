@@ -116,7 +116,15 @@ tr:hover td { background: #fafafa; }
 .progress-step.done .step-icon { background: var(--success); color: #fff; }
 .progress-step .step-label { line-height: 1; }
 
-.action-group { display: flex; gap: 6px; }
+.action-group { display: flex; gap: 4px; align-items: center; }
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px; font-size: 14px;
+  background: none; border: 1px solid var(--border); cursor: pointer;
+  transition: all .15s; line-height: 1; padding: 0;
+}
+.btn-icon:hover { background: var(--primary-light); border-color: var(--primary); }
+.btn-icon-danger:hover { background: #fef2f2; border-color: #dc2626; }
 .empty { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 
 /* Modal */

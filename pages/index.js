@@ -869,14 +869,14 @@ export default function Kanban() {
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
-                                <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>完成</button>
+                                <button className="btn-icon" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}>✓</button>
                               )}
-                              <button className="btn btn-outline btn-sm" onClick={() => openDrawer(t.id)}>详情</button>
+                              <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}>📋</button>
                               {(isAdmin || t.member_id === profile.id) && (
-                                <button className="btn btn-outline btn-sm" onClick={() => openEditTicket(t)}>编辑</button>
+                                <button className="btn-icon" title="编辑" onClick={() => openEditTicket(t)}>✏️</button>
                               )}
                               {isAdmin && (
-                                <button className="btn btn-sm" style={{ background: '#f1f5f9', color: '#64748b', border: 'none' }} onClick={() => deleteTicket(t.id)}>删除</button>
+                                <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}>🗑</button>
                               )}
                             </div>
                           </td>
