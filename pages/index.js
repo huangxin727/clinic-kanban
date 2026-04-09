@@ -842,6 +842,9 @@ export default function Kanban() {
               {(filterTimeField || filterTimeStart) && (
                 <button className="btn btn-sm" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }} onClick={() => { setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd('') }}>✕ 清除时间</button>
               )}
+              {(selectedMember || filterType || filterStatus || filterTimeField || filterTimeStart || search) && (
+                <button className="btn btn-sm" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }} onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd(''); setSearch('') }}>↺ 重置筛选</button>
+              )}
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
