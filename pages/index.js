@@ -691,10 +691,12 @@ export default function Kanban() {
         method: 'POST',
         body: JSON.stringify({ content: logInput.trim() })
       })
-      // 同时更新工单的 note
+      // 追加到工单的 note（用换行分隔，保留历史）
+      const existingNote = drawerTicket.note || ''
+      const newNote = existingNote ? `${existingNote}\n${logInput.trim()}` : logInput.trim()
       await api(`/tickets/${drawerTicket.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ note: logInput.trim() })
+        body: JSON.stringify({ note: newNote })
       })
       setLogInput('')
       // 先刷新列表，再刷新抽屉，避免竞态
