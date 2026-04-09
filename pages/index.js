@@ -881,7 +881,7 @@ export default function Kanban() {
                       return (
                         <tr key={t.id}>
                           <td style={{ fontWeight: 600, color: '#4b5563' }}>{t.ticket_no || '-'}</td>
-                          <td style={{ fontWeight: 600 }}>{t.client}</td>
+                          <td title={t.client}>{t.client}</td>
                           <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -894,7 +894,7 @@ export default function Kanban() {
                           <td style={{ color: 'var(--text-muted)' }}>{time}</td>
                           <td style={{ color: t.completed_at ? '#16a34a' : 'var(--text-muted)' }}>{doneTime}</td>
                           <td style={{ color: t.deadline ? '#374151' : 'var(--text-muted)' }}>{deadlineStr}</td>
-                          <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.note || ''}>{t.note || '-'}</td>
+                          <td style={{ maxWidth: 240, color: 'var(--text-muted)' }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && (
