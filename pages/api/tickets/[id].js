@@ -64,6 +64,11 @@ export default async function handler(req, res) {
     }
     delete updates._old_note
 
+    // 自动记录完成时间
+    if (updates.status === 'done') {
+      updates.completed_at = new Date().toISOString()
+    }
+
     const data = await updateById(KEYS.TICKETS, id, updates)
     if (!data) return res.status(404).json({ error: '工单不存在' })
 

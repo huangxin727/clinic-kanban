@@ -833,7 +833,9 @@ export default function Kanban() {
                       <th>负责人</th>
                       <th>状态</th>
                       <th>诊所编码</th>
-                      <th>接单时间</th>
+                      <th>新建时间</th>
+                      <th>完成时间</th>
+                      <th>预约时间</th>
                       <th>备注</th>
                       <th>操作</th>
                     </tr>
@@ -844,6 +846,8 @@ export default function Kanban() {
                       const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                       const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
                       const time = t.created_at ? new Date(t.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
+                      const doneTime = t.completed_at ? new Date(t.completed_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
+                      const deadlineStr = t.deadline || '-'
                       return (
                         <tr key={t.id}>
                           <td style={{ fontWeight: 600, color: '#4b5563' }}>{t.ticket_no || '-'}</td>
@@ -858,6 +862,8 @@ export default function Kanban() {
                           <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
                           <td style={{ fontFamily: 'monospace', fontSize: 13, color: t.clinic_code ? '#374151' : '#9ca3af' }}>{t.clinic_code || '-'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{time}</td>
+                          <td style={{ color: t.completed_at ? '#16a34a' : 'var(--text-muted)' }}>{doneTime}</td>
+                          <td style={{ color: t.deadline ? '#374151' : 'var(--text-muted)' }}>{deadlineStr}</td>
                           <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             <div className="action-group">
