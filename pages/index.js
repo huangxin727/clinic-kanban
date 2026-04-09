@@ -411,22 +411,6 @@ export default function Kanban() {
     setLoading(false)
   }
 
-  // 创建 profile（首次登录）
-  const handleCreateProfile = async () => {
-    if (!form.name?.trim()) return alert('请填写姓名')
-    try {
-      const json = await api('/auth/profile', {
-        method: 'POST',
-        body: JSON.stringify({ name: form.name.trim(), role: form.role || '全能' })
-      })
-      setProfile(json.data)
-      setForm({})
-      refreshAll()
-    } catch (err) {
-      alert(err.message)
-    }
-  }
-
   // 刷新所有数据（单次请求聚合接口）
   const refreshAll = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
@@ -638,30 +622,14 @@ export default function Kanban() {
   // ===== 渲染 =====
   if (!user) return <div style={{ textAlign: 'center', padding: 100 }}>加载中...</div>
 
-  // 首次登录：创建 profile
+  // 如果 profile 不存在，直接退出（需要组长先创建成员账号）
   if (!profile) {
     return (
       <div className="login-page">
-        <div className="login-card">
-          <h2>👋 欢迎首次登录</h2>
-          <p style={{ marginBottom: 24 }}>请完善您的个人信息以开始使用</p>
-          <div className="form-row">
-            <label>姓名 <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="请输入您的姓名" />
-          </div>
-          <div className="form-row">
-            <label>主职方向</label>
-            <select value={form.role || '全能'} onChange={e => setForm({ ...form, role: e.target.value })}>
-              <option value="全能">全能</option>
-              <option value="数据导入">数据导入</option>
-              <option value="培训">培训</option>
-              <option value="医保对接">医保对接</option>
-            </select>
-          </div>
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: 16, padding: 10 }} onClick={handleCreateProfile}>进入看板</button>
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <a href="#" onClick={handleLogout} style={{ fontSize: 13, color: 'var(--text-muted)' }}>退出登录</a>
-          </div>
+        <div className="login-card" style={{ textAlign: 'center' }}>
+          <h2>⚠️ 账号未关联</h2>
+          <p style={{ marginBottom: 24, color: 'var(--text-muted)' }}>请联系组长确认您的账号已正确创建</p>
+          <a href="#" onClick={handleLogout} className="btn btn-outline">退出登录</a>
         </div>
       </div>
     )
