@@ -375,6 +375,8 @@ export default function Kanban() {
   const [showUrgentModal, setShowUrgentModal] = useState(false)
   const [urgentInfo, setUrgentInfo] = useState({ ticketId: null })
   const [urgentNote, setUrgentNote] = useState('')
+  const [showCancelUrgentModal, setShowCancelUrgentModal] = useState(false)
+  const [cancelUrgentId, setCancelUrgentId] = useState(null)
 
   // 时间表弹窗
   const [showTimelineModal, setShowTimelineModal] = useState(false)
@@ -642,14 +644,21 @@ export default function Kanban() {
     })
   }
 
-  // 取消需跟进（切回进行中）
-  const cancelUrgent = (ticketId) => {
-    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
-    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'inprogress' } : t))
+  // 取消需跟进（弹窗确认后切回进行中）
+  const openCancelUrgentModal = (ticketId) => {
+    setCancelUrgentId(ticketId)
+    setShowCancelUrgentModal(true)
+  }
+
+  const confirmCancelUrgent = () => {
+    if (!cancelUrgentId) return
+    const needReopenDrawer = drawerTicket && drawerTicket.id === cancelUrgentId
+    setTickets(prev => prev.map(t => t.id === cancelUrgentId ? { ...t, status: 'inprogress' } : t))
     if (needReopenDrawer) {
-      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'inprogress' } : prev)
+      setDrawerTicket(prev => prev && prev.id === cancelUrgentId ? { ...prev, status: 'inprogress' } : prev)
     }
-    api(`/tickets/${ticketId}`, {
+    setShowCancelUrgentModal(false)
+    api(`/tickets/${cancelUrgentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'inprogress' })
     }).then(() => refreshAll()).catch(err => {
@@ -1069,7 +1078,7 @@ export default function Kanban() {
                                 <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
                               )}
                               {t.status === 'urgent' && (
-                                <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); cancelUrgent(t.id) }}><Icon type="flag"/></button>
+                                <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
                               )}
                               {t.status !== 'done' && (
                                 <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
@@ -1289,6 +1298,27 @@ export default function Kanban() {
         </div>
       )}
 
+      {/* 取消需跟进弹窗 */}
+      {showCancelUrgentModal && (
+        <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) setShowCancelUrgentModal(false) }}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-header">
+              <h3>取消需跟进</h3>
+              <button className="modal-close" onClick={() => setShowCancelUrgentModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ padding: '10px 14px', background: '#f9fafb', borderRadius: 8 }}>
+                确认将此工单从<strong style={{ color: '#ea580c' }}>需跟进</strong>切回<strong>进行中</strong>？
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowCancelUrgentModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={confirmCancelUrgent}>确认</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 时间段工作表弹窗 */}
       {showTimelineModal && (
         <TimelineModal
@@ -1400,7 +1430,7 @@ export default function Kanban() {
                 <button
                   className="btn btn-outline"
                   style={{ flex: 1 }}
-                  onClick={() => { cancelUrgent(drawerTicket.id); setShowDrawer(false) }}
+                  onClick={() => openCancelUrgentModal(drawerTicket.id)}
                 >取消需跟进</button>
               )}
               {drawerTicket.status !== 'done' && (
