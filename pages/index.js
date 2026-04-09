@@ -542,14 +542,20 @@ export default function Kanban() {
     setServices([])
   }
 
-  const deleteTicket = async (id) => {
+  const deleteTicket = (id) => {
     if (!confirm('确认删除此工单？')) return
-    try {
-      await api(`/tickets/${id}`, { method: 'DELETE' })
-      refreshAll()
-    } catch (err) {
-      alert(err.message)
+    // 如果删除的是当前抽屉里的工单，关闭抽屉
+    if (drawerTicket && drawerTicket.id === id) {
+      setShowDrawer(false)
+      setDrawerTicket(null)
     }
+    // 乐观更新：立即从本地移除
+    setTickets(prev => prev.filter(t => t.id !== id))
+    // 后台异步删除，失败回滚
+    api(`/tickets/${id}`, { method: 'DELETE' }).then(() => refreshAll()).catch(err => {
+      alert('删除失败: ' + err.message)
+      refreshAll()
+    })
   }
 
   // ===== 完成工单 =====
