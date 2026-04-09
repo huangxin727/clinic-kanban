@@ -627,6 +627,22 @@ export default function Kanban() {
     })
   }
 
+  // 取消需跟进（切回进行中）
+  const cancelUrgent = (ticketId) => {
+    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'inprogress' } : t))
+    if (needReopenDrawer) {
+      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'inprogress' } : prev)
+    }
+    api(`/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'inprogress' })
+    }).then(() => refreshAll()).catch(err => {
+      alert('操作失败: ' + err.message)
+      refreshAll()
+    })
+  }
+
   // ===== 详情抽屉 =====
   const openDrawer = async (id) => {
     // 先用本地数据立即打开抽屉（秒开）
@@ -1035,7 +1051,10 @@ export default function Kanban() {
                           <td>
                             <div className="action-group">
                               {t.status !== 'done' && t.status !== 'urgent' && (
-                                <button className="btn-icon btn-icon-warning" title="需跟进" onClick={(e) => { e.stopPropagation(); markUrgent(t.id) }}><Icon type="flag"/></button>
+                                <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); markUrgent(t.id) }}><Icon type="flag"/></button>
+                              )}
+                              {t.status === 'urgent' && (
+                                <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); cancelUrgent(t.id) }}><Icon type="flag"/></button>
                               )}
                               {t.status !== 'done' && (
                                 <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
@@ -1329,6 +1348,13 @@ export default function Kanban() {
                   style={{ flex: 1, color: '#ea580c', borderColor: '#ea580c' }}
                   onClick={() => { markUrgent(drawerTicket.id); setShowDrawer(false) }}
                 >标为需跟进</button>
+              )}
+              {drawerTicket.status === 'urgent' && (
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                  onClick={() => { cancelUrgent(drawerTicket.id); setShowDrawer(false) }}
+                >取消需跟进</button>
               )}
               {drawerTicket.status !== 'done' && (
                 <button
