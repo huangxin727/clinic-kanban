@@ -126,22 +126,22 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
 
   return (
     <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 1100, width: '96vw', maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="modal" style={{ maxWidth: '96vw', width: '96vw', maxHeight: '95vh', overflow: 'auto' }}>
         <div className="modal-header">
-          <h3 style={{ fontSize: 20 }}>📅 今日工作时间段表</h3>
+          <h3 style={{ fontSize: 24 }}>📅 今日工作时间段表</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 14 }}>
+          <div style={{ fontSize: 16, color: '#6b7280', marginBottom: 16 }}>
             {today} · 显示每位成员今日各时段的工作安排
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 24 }}>
               <thead>
                 <tr>
-                  <th style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 2, padding: '10px 16px', borderBottom: '2px solid #e5e7eb', textAlign: 'left', minWidth: 100, fontWeight: 600, fontSize: 14 }}>成员</th>
+                  <th style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 2, padding: '14px 24px', borderBottom: '2px solid #e5e7eb', textAlign: 'left', minWidth: 160, fontWeight: 600, fontSize: 22 }}>成员</th>
                   {hours.map(h => (
-                    <th key={h} style={{ padding: '8px 6px', borderBottom: '2px solid #e5e7eb', minWidth: 80, fontWeight: 600, fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <th key={h} style={{ padding: '12px 10px', borderBottom: '2px solid #e5e7eb', minWidth: 120, fontWeight: 600, fontSize: 18, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {h}:00-{h === 22 ? '23:59' : (h + 1) + ':00'}
                     </th>
                   ))}
@@ -152,9 +152,9 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                   const mTickets = groupedByMember[m.id] || []
                   return (
                     <tr key={m.id}>
-                      <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1, padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: 14 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                      <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1, padding: '14px 24px', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: 22 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                          <span style={{ width: 16, height: 16, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
                           {m.name}
                         </span>
                       </td>
@@ -168,7 +168,7 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
 
                         return (
                           <td key={h} style={{
-                            padding: 6,
+                            padding: 8,
                             borderBottom: '1px solid #f3f4f6',
                             textAlign: 'center',
                             verticalAlign: 'top',
@@ -176,10 +176,10 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                             {content ? (
                               content.map(t => (
                                 <div key={t.id} style={{
-                                  padding: '5px 8px',
-                                  marginBottom: 3,
-                                  borderRadius: 6,
-                                  fontSize: 13,
+                                  padding: '8px 12px',
+                                  marginBottom: 4,
+                                  borderRadius: 8,
+                                  fontSize: 20,
                                   lineHeight: 1.4,
                                   whiteSpace: 'nowrap',
                                   overflow: 'hidden',
@@ -189,11 +189,11 @@ function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
                                   fontWeight: 500,
                                 }} title={`${(typeMap[t.type] || {}).label || t.type} - ${t.client}`}>
                                   {(typeMap[t.type] || {}).label || t.type}
-                                  {t.client && <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>{t.client}</div>}
+                                  {t.client && <div style={{ fontSize: 16, fontWeight: 400, marginTop: 3, opacity: 0.85 }}>{t.client}</div>}
                                 </div>
                               ))
                             ) : (
-                              <div style={{ padding: '5px 8px', fontSize: 12, color: '#d1d5db' }}>空闲</div>
+                              <div style={{ padding: '8px 12px', fontSize: 18, color: '#d1d5db' }}>空闲</div>
                             )}
                           </td>
                         )
