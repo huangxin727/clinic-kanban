@@ -530,48 +530,48 @@ export default function Kanban() {
     setShowCompleteModal(true)
   }
 
-  const confirmCompleteTicket = async () => {
+  const confirmCompleteTicket = () => {
     if (!clinicCodeInput.trim()) return alert('请填写诊所编码')
     if (completingTicket) return
     const { ticketId } = completeInfo
     if (!ticketId) return
 
-    setCompletingTicket(true)
     const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
-    try {
-      const putRes = await api(`/tickets/${ticketId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          status: 'done',
-          clinic_code: clinicCodeInput.trim(),
-        })
-      })
+    const now = new Date().toISOString()
 
-      // 立即关闭弹窗 + 更新本地状态（不等 refreshAll）
-      setShowCompleteModal(false)
-      setCompletingTicket(false)
+    // 立即关闭弹窗 + 乐观更新本地状态
+    setShowCompleteModal(false)
+    setTickets(prev => prev.map(t => {
+      if (t.id === ticketId) {
+        return { ...t, status: 'done', clinic_code: clinicCodeInput.trim(), completed_at: now }
+      }
+      return t
+    }))
+    if (needReopenDrawer) {
+      setDrawerTicket(prev => prev && prev.id === ticketId
+        ? { ...prev, status: 'done', clinic_code: clinicCodeInput.trim(), completed_at: now }
+        : prev
+      )
+    }
 
-      // 用 PUT 返回的数据乐观更新本地列表，避免等 refreshAll
+    // 后台异步提交，失败回滚并提示
+    api(`/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
+    }).then(() => {
+      refreshAll()
+    }).catch(err => {
+      alert('完成操作失败: ' + err.message)
+      // 回滚本地状态
       setTickets(prev => prev.map(t => {
         if (t.id === ticketId) {
-          return {
-            ...t,
-            status: 'done',
-            clinic_code: clinicCodeInput.trim(),
-            completed_at: putRes.data?.completed_at || new Date().toISOString(),
-            member: putRes.data?.member || t.member,
-          }
+          const { completed_at: _, ...rest } = t
+          return { ...rest, status: t._prevStatus || 'inprogress', clinic_code: t._prevClinicCode || '' }
         }
         return t
       }))
-
-      // 后台静默刷新全量数据 + 更新抽屉
       refreshAll()
-      if (needReopenDrawer) openDrawer(ticketId)
-    } catch (err) {
-      alert('操作失败: ' + err.message)
-      setCompletingTicket(false)
-    }
+    })
   }
 
   // ===== 详情抽屉 =====
@@ -1159,7 +1159,7 @@ export default function Kanban() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={confirmCompleteTicket} disabled={completingTicket}>{completingTicket ? '提交中...' : '确认完成'}</button>
+              <button className="btn btn-primary" onClick={confirmCompleteTicket}>确认完成</button>
             </div>
           </div>
         </div>
