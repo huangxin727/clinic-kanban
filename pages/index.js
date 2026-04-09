@@ -1214,36 +1214,34 @@ export default function Kanban() {
             <button className="drawer-close" onClick={() => setShowDrawer(false)}>×</button>
           </div>
           <div className="drawer-body">
-            <table className="detail-table">
-              <tbody>
-                <tr><td className="dt-label">工单号</td><td className="dt-value">{drawerTicket.ticket_no || '-'}</td></tr>
-                <tr><td className="dt-label">客户</td><td className="dt-value" style={{ fontWeight: 700 }}>{drawerTicket.client}</td></tr>
-                <tr><td className="dt-label">类型</td><td className="dt-value"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></td></tr>
-                <tr><td className="dt-label">负责人</td><td className="dt-value">{drawerTicket.member?.name || '未分配'}</td></tr>
-                <tr><td className="dt-label">状态</td><td className="dt-value"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></td></tr>
-                <tr><td className="dt-label">预约时间</td><td className="dt-value">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</td></tr>
-                <tr><td className="dt-label">诊所编码</td><td className="dt-value">{drawerTicket.clinic_code || '未填写'}</td></tr>
-                <tr><td className="dt-label">新建时间</td><td className="dt-value">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</td></tr>
-                {drawerTicket.status === 'done' && drawerTicket.completed_at && (
-                  <tr><td className="dt-label">完成时间</td><td className="dt-value" style={{ color: '#16a34a' }}>{new Date(drawerTicket.completed_at).toLocaleString('zh-CN')}</td></tr>
-                )}
-                {drawerTicket.status === 'done' && drawerTicket.completed_at && drawerTicket.created_at && (() => {
-                  const diffMs = new Date(drawerTicket.completed_at).getTime() - new Date(drawerTicket.created_at).getTime()
-                  if (diffMs < 0) return null
-                  const minutes = Math.floor(diffMs / 60000)
-                  const hours = Math.floor(minutes / 60)
-                  const mins = minutes % 60
-                  let duration = ''
-                  if (hours >= 24) { duration = `${Math.floor(hours / 24)}天${hours % 24}时${mins}分` }
-                  else if (hours > 0) { duration = `${hours}时${mins}分` }
-                  else { duration = `${mins}分` }
-                  return <tr><td className="dt-label">消耗时间</td><td className="dt-value" style={{ fontWeight: 600, color: '#2563eb' }}>{duration}</td></tr>
-                })()}
-                {drawerTicket.note && (
-                  <tr><td className="dt-label">备注</td><td className="dt-value" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{drawerTicket.note}</td></tr>
-                )}
-              </tbody>
-            </table>
+            <div className="detail-grid">
+              <div className="dg-item"><span className="dg-label">工单号</span><span className="dg-value">{drawerTicket.ticket_no || '-'}</span></div>
+              <div className="dg-item"><span className="dg-label">客户</span><span className="dg-value" style={{ fontWeight: 700 }}>{drawerTicket.client}</span></div>
+              <div className="dg-item"><span className="dg-label">类型</span><span className="dg-value"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></span></div>
+              <div className="dg-item"><span className="dg-label">负责人</span><span className="dg-value">{drawerTicket.member?.name || '未分配'}</span></div>
+              <div className="dg-item"><span className="dg-label">状态</span><span className="dg-value"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
+              <div className="dg-item"><span className="dg-label">预约时间</span><span className="dg-value">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</span></div>
+              <div className="dg-item"><span className="dg-label">诊所编码</span><span className="dg-value">{drawerTicket.clinic_code || '未填写'}</span></div>
+              <div className="dg-item"><span className="dg-label">新建时间</span><span className="dg-value">{drawerTicket.created_at ? new Date(drawerTicket.created_at).toLocaleString('zh-CN') : '-'}</span></div>
+              {drawerTicket.status === 'done' && drawerTicket.completed_at && (
+                <div className="dg-item"><span className="dg-label">完成时间</span><span className="dg-value" style={{ color: '#16a34a' }}>{new Date(drawerTicket.completed_at).toLocaleString('zh-CN')}</span></div>
+              )}
+              {drawerTicket.status === 'done' && drawerTicket.completed_at && drawerTicket.created_at && (() => {
+                const diffMs = new Date(drawerTicket.completed_at).getTime() - new Date(drawerTicket.created_at).getTime()
+                if (diffMs < 0) return null
+                const minutes = Math.floor(diffMs / 60000)
+                const hours = Math.floor(minutes / 60)
+                const mins = minutes % 60
+                let duration = ''
+                if (hours >= 24) { duration = `${Math.floor(hours / 24)}天${hours % 24}时${mins}分` }
+                else if (hours > 0) { duration = `${hours}时${mins}分` }
+                else { duration = `${mins}分` }
+                return <div className="dg-item"><span className="dg-label">消耗时间</span><span className="dg-value" style={{ fontWeight: 600, color: '#2563eb' }}>{duration}</span></div>
+              })()}
+              {drawerTicket.note && (
+                <div className="dg-item dg-full"><span className="dg-label">备注</span><span className="dg-value" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{drawerTicket.note}</span></div>
+              )}
+            </div>
 
             <div style={{ fontWeight: 600, margin: '16px 0 8px' }}>📋 服务内容</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>

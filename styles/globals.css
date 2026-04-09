@@ -162,12 +162,11 @@ tr:hover td { background: #fafafa; }
 .drawer-header h3 { font-size: var(--font-base); font-weight: 600; }
 .drawer-close { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; }
 .drawer-body { padding: 16px 20px; }
-.detail-table { width: 100%; border-collapse: collapse; font-size: var(--font-sm); }
-.detail-table tr { border-bottom: 1px solid #f3f4f6; }
-.detail-table tr:last-child { border-bottom: none; }
-.detail-table td { padding: 9px 0; vertical-align: top; line-height: 1.5; }
-.detail-table .dt-label { color: var(--text-muted); width: 80px; flex-shrink: 0; font-weight: 400; }
-.detail-table .dt-value { font-weight: 500; word-break: break-all; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: var(--font-sm); }
+.detail-grid .dg-item { display: flex; align-items: baseline; gap: 8px; }
+.detail-grid .dg-item.dg-full { grid-column: 1 / -1; }
+.detail-grid .dg-label { color: var(--text-muted); flex-shrink: 0; font-weight: 400; min-width: 56px; }
+.detail-grid .dg-value { font-weight: 500; word-break: break-all; }
 .timeline { margin-top: 16px; }
 .timeline-item { display: flex; gap: 12px; padding-bottom: 14px; position: relative; }
 .timeline-item:not(:last-child)::before { content:''; position: absolute; left: 11px; top: 22px; bottom: 0; width: 2px; background: var(--border); }
