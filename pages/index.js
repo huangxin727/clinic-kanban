@@ -618,9 +618,8 @@ export default function Kanban() {
 
   // 标为需跟进（打开弹窗填写备注）
   const openUrgentModal = (ticketId) => {
-    const t = tickets.find(t => t.id === ticketId)
     setUrgentInfo({ ticketId })
-    setUrgentNote(t?.note || '')
+    setUrgentNote('')
     setShowUrgentModal(true)
   }
 
@@ -1066,7 +1065,7 @@ export default function Kanban() {
                           <td>{time}</td>
                           <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{doneTime}</td>
                           <td>{deadlineStr}</td>
-                          <td style={{ maxWidth: 240 }} title={t.note || ''}>{t.note || '-'}</td>
+                          <td style={{ maxWidth: 240, whiteSpace: 'pre-wrap', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                           <td>
                             {t.status === 'done' && t.completed_at ? (
                               <span style={{ fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>{duration}</span>
