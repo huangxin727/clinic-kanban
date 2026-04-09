@@ -626,6 +626,9 @@ export default function Kanban() {
   // ===== 渲染 =====
   if (!user) return <div style={{ textAlign: 'center', padding: 100 }}>加载中...</div>
 
+  // profile 加载中，显示加载提示（避免闪烁"未关联"）
+  if (loading) return <div style={{ textAlign: 'center', padding: 100 }}>加载中...</div>
+
   // 如果 profile 不存在，直接退出（需要组长先创建成员账号）
   if (!profile) {
     return (
