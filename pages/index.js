@@ -1120,10 +1120,7 @@ export default function Kanban() {
     if (!confirm('确认删除此工单？')) return
     const lockKey = `del:${id}`
     if (actionLocksRef.current.has(lockKey)) return
-    // 全局删除锁：防止快速连续删除导致大量并发 refreshAll
-    if (actionLocksRef.current.has('deleting')) return
     lockAction(lockKey)
-    lockAction('deleting')
     // 如果删除的是当前抽屉里的工单，关闭抽屉
     if (drawerTicket && drawerTicket.id === id) {
       setShowDrawer(false)
@@ -1143,7 +1140,6 @@ export default function Kanban() {
     } catch (err) {
       deletingIdsRef.current.delete(id)
       unlockAction(lockKey)
-      unlockAction('deleting')
       alert('删除失败: ' + err.message)
       silentPoll()
       return
@@ -1152,7 +1148,6 @@ export default function Kanban() {
     setTimeout(() => {
       deletingIdsRef.current.delete(id)
       unlockAction(lockKey)
-      unlockAction('deleting')
     }, 5000)
     // 不调 silentPoll，依赖乐观更新+定时poll自然同步，避免 poll 返回含已删除工单的数据覆盖乐观删除
   }
