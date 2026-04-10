@@ -652,6 +652,15 @@ export default function Kanban() {
 
     const poll = async () => {
       try {
+        // 乐观更新后的屏蔽期内跳过 poll，避免覆盖本地最新状态
+        if (Date.now() < skipPollUntilRef.current) {
+          // 仍然更新 lastTs，避免屏蔽结束后堆积大量变更
+          const tsRes = await fetch(`/api/poll?ts=${lastTs}&_t=${Date.now()}`, {
+            headers: { Authorization: `Bearer ${sessionStorage.getItem('kanban_token')}` }
+          }).then(r => r.json()).catch(() => null)
+          if (tsRes?.success && tsRes.ts) lastTs = tsRes.ts
+          return
+        }
         const res = await api(`/poll?ts=${lastTs}`)
         if (alive && res.success && res.changed) {
           lastTs = res.ts
@@ -748,11 +757,13 @@ export default function Kanban() {
       setDrawerTicket(prev => prev && prev.id === form.id ? { ...prev, ...payload, updated_at: now } : prev)
 
       // 后台异步提交，不主动 refreshAll（由 3 秒轮询自然同步）
+      skipPollUntilRef.current = Date.now() + 2000 // 屏蔽 poll 2 秒，等待后端写入完成
       api(`/tickets/${form.id}`, {
         method: 'PUT',
         body: JSON.stringify(payload)
       }).catch(err => {
         alert('保存失败: ' + err.message)
+        skipPollUntilRef.current = 0
         refreshAll()
       })
     } else {
@@ -770,25 +781,35 @@ export default function Kanban() {
       creatingTicketsRef.current = [...creatingTicketsRef.current.filter(t => t.id !== tempId), newTicket]
       safeSetTickets(prev => [newTicket, ...prev])
 
-      // 后台异步提交，不主动 refreshAll（由轮询自然同步）
+      // 屏蔽 poll 3 秒，等待后端写入 + poll 同步完成
+      skipPollUntilRef.current = Date.now() + 3000
+
+      // 后台异步提交
       api('/tickets', {
         method: 'POST',
         body: JSON.stringify(payload)
       }).then((res) => {
-        // POST 成功后，记录真实 ID，让后续 poll 用真实 ID 数据无缝替换 tempId
-        // 延迟清除 tempId：等下一次 poll 把真实 ID 工单带回来后再清除
-        // 这样避免 tempId 被清空但 poll 还没拿到新数据的窗口期闪烁
         if (res?.data?.id) {
-          newTicket._realId = res.data.id
-        }
-        setTimeout(() => {
+          // POST 成功后，立即用真实 ID 替换本地 tempId 工单
+          const realId = res.data.id
+          setTickets(prev => prev.map(tk => tk.id === tempId
+            ? { ...tk, id: realId, ...res.data, member: res.data.member || tk.member }
+            : tk
+          ))
+          // 清除 tempId 标记
           creatingIdsRef.current.delete(tempId)
           creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
-        }, 3000)
+          // 如果抽屉打开着这个工单，同步更新
+          setDrawerTicket(prev => prev && prev.id === tempId
+            ? { ...prev, id: realId, ...res.data, member: res.data.member || prev.member }
+            : prev
+          )
+        }
       }).catch(err => {
         creatingIdsRef.current.delete(tempId)
         creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
         alert('保存失败: ' + err.message)
+        skipPollUntilRef.current = 0
         refreshAll()
       })
     }
@@ -803,6 +824,7 @@ export default function Kanban() {
   const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合
   const creatingIdsRef = useRef(new Set()) // 正在新建中的工单ID集合
   const creatingTicketsRef = useRef([]) // 乐观创建的工单对象（tempId → ticket）
+  const skipPollUntilRef = useRef(0) // poll 屏蔽截止时间戳，乐观更新后短暂屏蔽 poll 覆盖
 
   // 解析工单的真实 ID（乐观创建的工单使用 tempId，需替换为 _realId）
   const resolveTicketId = useCallback((t) => {
@@ -883,6 +905,7 @@ export default function Kanban() {
       })
       // 后端确认成功，乐观更新本地状态
       if (res.success) {
+        skipPollUntilRef.current = Date.now() + 2000 // 屏蔽 poll 2 秒
         setTickets(prev => prev.map(tk => tk.id === ticketId
           ? { ...tk, ...acceptData, member: { id: member.id, name: member.name, role: member.role, color: member.color } }
           : tk
@@ -924,6 +947,7 @@ export default function Kanban() {
     // 如果是乐观创建的工单，用真实 ID 替换 tempId
     const ticketId = resolveTicketId(t)
     // 乐观更新：立即更新本地状态
+    skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(tk => tk.id === ticketId ? { ...tk, ...updates } : tk))
     showToast(`🚀 开始处理：${t.client}`)
     // 后台异步提交，失败回滚
@@ -932,6 +956,7 @@ export default function Kanban() {
       body: JSON.stringify(updates)
     }).catch(err => {
       alert('操作失败: ' + err.message)
+      skipPollUntilRef.current = 0
       refreshAll()
     })
   }
@@ -995,6 +1020,7 @@ export default function Kanban() {
 
     // 立即关闭弹窗 + 乐观更新本地状态
     setShowCompleteModal(false)
+    skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         return { ...t, status: 'done', clinic_code: clinicCodeInput.trim(), completed_at: now }
@@ -1014,6 +1040,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
     }).catch(err => {
       alert('完成操作失败: ' + err.message)
+      skipPollUntilRef.current = 0
       // 回滚本地状态
       setTickets(prev => prev.map(t => {
         if (t.id === ticketId) {
@@ -1038,6 +1065,7 @@ export default function Kanban() {
     if (!ticketId) return
     const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
     // 乐观更新本地状态
+    skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'urgent', note: urgentNote.trim() } : t))
     if (needReopenDrawer) {
       setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent', note: urgentNote.trim() } : prev)
@@ -1049,6 +1077,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
     }).catch(err => {
       alert('操作失败: ' + err.message)
+      skipPollUntilRef.current = 0
       refreshAll()
     })
   }
@@ -1062,6 +1091,7 @@ export default function Kanban() {
   const confirmCancelUrgent = () => {
     if (!cancelUrgentId) return
     const needReopenDrawer = drawerTicket && drawerTicket.id === cancelUrgentId
+    skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(t => t.id === cancelUrgentId ? { ...t, status: 'inprogress' } : t))
     if (needReopenDrawer) {
       setDrawerTicket(prev => prev && prev.id === cancelUrgentId ? { ...prev, status: 'inprogress' } : prev)
@@ -1073,6 +1103,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'inprogress' })
     }).catch(err => {
       alert('操作失败: ' + err.message)
+      skipPollUntilRef.current = 0
       refreshAll()
     })
   }
