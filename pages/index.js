@@ -784,9 +784,6 @@ export default function Kanban() {
       creatingTicketsRef.current = [...creatingTicketsRef.current.filter(t => t.id !== tempId), newTicket]
       safeSetTickets(prev => [newTicket, ...prev])
 
-      // 屏蔽 poll 3 秒，等待后端写入 + poll 同步完成
-      skipPollUntilRef.current = Date.now() + 3000
-
       // 后台异步提交
       api('/tickets', {
         method: 'POST',
@@ -802,6 +799,8 @@ export default function Kanban() {
           // 清除 tempId 标记
           creatingIdsRef.current.delete(tempId)
           creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
+          // POST 成功后才屏蔽 poll 5 秒，避免 poll 用旧数据覆盖
+          skipPollUntilRef.current = Date.now() + 5000
           setSavingTicket(false)
           // 如果抽屉打开着这个工单，同步更新
           setDrawerTicket(prev => prev && prev.id === tempId
@@ -1042,27 +1041,11 @@ export default function Kanban() {
     const { ticketId } = completeInfo
     if (!ticketId) return
 
-    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
-    const now = new Date().toISOString()
-
-    // 立即关闭弹窗 + 乐观更新本地状态
+    // 立即关闭弹窗，等 api 返回后由 poll 自然同步状态
     setCompletingTicket(true)
     setShowCompleteModal(false)
-    skipPollUntilRef.current = Date.now() + 2000
-    setTickets(prev => prev.map(t => {
-      if (t.id === ticketId) {
-        return { ...t, status: 'done', clinic_code: clinicCodeInput.trim(), completed_at: now }
-      }
-      return t
-    }))
-    if (needReopenDrawer) {
-      setDrawerTicket(prev => prev && prev.id === ticketId
-        ? { ...prev, status: 'done', clinic_code: clinicCodeInput.trim(), completed_at: now }
-        : prev
-      )
-    }
 
-    // 后台异步提交，不主动 refreshAll（由轮询同步）
+    // 后台提交，成功后由 poll 自动同步最新状态
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
@@ -1071,16 +1054,6 @@ export default function Kanban() {
     }).catch(err => {
       setCompletingTicket(false)
       alert('完成操作失败: ' + err.message)
-      skipPollUntilRef.current = 0
-      // 回滚本地状态
-      setTickets(prev => prev.map(t => {
-        if (t.id === ticketId) {
-          const { completed_at: _, ...rest } = t
-          return { ...rest, status: t._prevStatus || 'inprogress', clinic_code: t._prevClinicCode || '' }
-        }
-        return t
-      }))
-      refreshAll()
     })
   }
 
@@ -2039,7 +2012,8 @@ export default function Kanban() {
                   className="btn btn-outline"
                   style={{ flex: 1 }}
                   onClick={() => openCompleteModal(drawerTicket.id)}
-                >完成工单</button>
+                  disabled={completingTicket}
+                >{completingTicket ? '完成中...' : '完成工单'}</button>
               )}
               {(isAdmin || drawerTicket.member_id === profile.id) && (
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setShowDrawer(false); openEditTicket(drawerTicket) }}>编辑工单</button>
