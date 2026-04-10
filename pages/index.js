@@ -418,21 +418,28 @@ export default function Kanban() {
 
   // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
   const remindedRef = React.useRef(new Set())
+  const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
   useEffect(() => {
     const check = () => {
       const now = Date.now()
+      const newAlerts = []
       tickets.forEach(t => {
         if (!t.deadline || t.member_id) return // 有负责人=已接单，跳过
         if (t.status === 'done') return
         const dl = new Date(t.deadline).getTime()
         const diffMin = (dl - now) / 60000
-        if (diffMin > 0 && diffMin <= 20 && !remindedRef.current.has(t.id)) {
+        if (diffMin <= 20 && !remindedRef.current.has(t.id)) {
           remindedRef.current.add(t.id)
-          const min = Math.round(diffMin)
+          const min = Math.abs(Math.round(diffMin))
+          const isOverdue = diffMin <= 0
+          const msg = isOverdue
+            ? `【${t.client}】预约时间已过期 ${min} 分钟，尚未有人接单！`
+            : `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`
+          newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
           // 桌面通知
           const notify = () => {
             new Notification('⏰ 工单待接单提醒', {
-              body: `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`,
+              body: msg,
               icon: '/favicon.ico',
             })
           }
@@ -445,6 +452,9 @@ export default function Kanban() {
           }
         }
       })
+      if (newAlerts.length > 0) {
+        setRemindAlerts(prev => [...prev, ...newAlerts])
+      }
     }
     check()
     const timer = setInterval(check, 60000)
@@ -1579,6 +1589,33 @@ export default function Kanban() {
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>关闭</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 预约提醒弹窗（页面内） */}
+      {remindAlerts.length > 0 && (
+        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380 }}>
+          {remindAlerts.map((a, i) => (
+            <div key={a.id + i} style={{
+              background: a.isOverdue ? '#fef2f2' : '#fffbeb',
+              border: `2px solid ${a.isOverdue ? '#fca5a5' : '#fde68a'}`,
+              borderRadius: 12,
+              padding: '16px 20px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+              animation: 'slideInRight 0.3s ease-out',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: a.isOverdue ? '#dc2626' : '#b45309' }}>
+                  {a.isOverdue ? '🔴 已过期' : '⏰ 即将到期'}
+                </span>
+                <button
+                  onClick={() => setRemindAlerts(prev => prev.filter(x => !(x.id === a.id && prev.indexOf(x) === i)))}
+                  style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af', padding: 0, lineHeight: 1 }}
+                >×</button>
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{a.msg}</div>
+            </div>
+          ))}
         </div>
       )}
     </>
