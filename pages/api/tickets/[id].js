@@ -10,6 +10,7 @@ async function autoSetBusy(memberId) {
 }
 
 // 完成工单时自动检查是否需要将成员设回空闲
+// 只有 inprogress 状态的工单才算"正在处理"，pending 和 done 都不算
 async function autoSetFree(memberId) {
   if (!memberId) return
   const tickets = await getAll(KEYS.TICKETS)
@@ -94,7 +95,8 @@ export default async function handler(req, res) {
     await touchUpdate()
 
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
-    const needBusy = updates.member_id && (updates.status === 'pending' || updates.status === 'inprogress' || (!updates.status && (data.status === 'pending' || data.status === 'inprogress')))
+    // 只有 inprogress 状态才设忙碌，pending 不算忙碌
+    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
     const needFree = updates.status === 'done'
 
     // 接单时用请求者自身的 member 信息构造响应
