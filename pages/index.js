@@ -655,7 +655,7 @@ export default function Kanban() {
 
         // 2) 已接单未开始处理（pending）：距预约时间≤20分钟或已超过，催促负责人
         // 仅当当前登录用户就是该工单负责人时弹窗
-        if (t.status === 'pending' && t.member_id && diffMin <= 20 && profile && t.member_id === profile.id) {
+        if (t.status === 'pending' && t.member_id && diffMin <= 5 && profile && t.member_id === profile.id) {
           const urgedCount = (urgedRef.current.get(t.id) || 0)
           if (urgedCount < 5) { // 最多催促5次
             const min = Math.abs(Math.round(diffMin))
