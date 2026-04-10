@@ -80,7 +80,7 @@ const Icon = ({ type, size = 16 }) => {
 }
 
 // 表头搜索筛选组件
-const ThSearchFilter = ({ value, onChange }) => {
+const ThSearchFilter = ({ value, onChange, label }) => {
   const [open, setOpen] = useState(false)
   const inputRef = React.useRef(null)
   const ref = React.useRef(null)
@@ -95,7 +95,7 @@ const ThSearchFilter = ({ value, onChange }) => {
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus?.(), 0) }}
         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, borderBottom: value ? '2px solid #3b82f6' : '2px solid transparent', transition: 'border-color .15s' }}
       >
-        <span>{value ? value : '客户'}</span>
+        <span>{value ? value : (label || '客户')}</span>
         {open
           ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="3" y="3" width="7" height="7" rx="1"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
           : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: value ? 1 : 0.4, flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
@@ -110,7 +110,7 @@ const ThSearchFilter = ({ value, onChange }) => {
             ref={inputRef}
             value={value}
             onChange={e => onChange(e.target.value)}
-            placeholder="搜索客户/工单号..."
+            placeholder={`搜索${label || '客户'}...`}
             style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13, outline: 'none' }}
             autoFocus
           />
@@ -481,10 +481,10 @@ export default function Kanban() {
   }, [members])
 
   const [selectedMember, setSelectedMember] = useState('')
-  const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDate, setFilterDate] = useState(getToday())
   const [search, setSearch] = useState('')
+  const [searchType, setSearchType] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [clock, setClock] = useState('')
@@ -866,7 +866,10 @@ export default function Kanban() {
 
   // 过滤工单（selectedMember 不在此过滤，在 UI 层按已接单/待接单分别处理）
   const filteredTickets = tickets.filter(t => {
-    if (filterType && t.type !== filterType) return false
+    if (searchType) {
+      const label = (TYPE_MAP[t.type] || {}).label || t.type || ''
+      if (!label.toLowerCase().includes(searchType.toLowerCase())) return false
+    }
     if (filterStatus && t.status !== filterStatus) return false
     if (filterDate) {
       let ticketDate = t.ticket_date
@@ -1573,7 +1576,7 @@ export default function Kanban() {
                       <thead>
                         <tr>
                           <ThSearchFilter value={search} onChange={v => setSearch(v)} />
-                          <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
+                          <ThSearchFilter value={searchType} onChange={v => setSearchType(v)} label="类型" />
                           <th>负责人</th>
                           <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
                           <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
@@ -1629,7 +1632,7 @@ export default function Kanban() {
                       <thead>
                         <tr>
                           <ThSearchFilter value={search} onChange={v => setSearch(v)} />
-                          <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
+                          <ThSearchFilter value={searchType} onChange={v => setSearchType(v)} label="类型" />
                           <ThFilter label="负责人" active={!!selectedMember} value={selectedMember} onChange={v => setSelectedMember(v)} options={members.map(m => ({ value: m.id, label: m.name }))} allLabel="全部组员" />
                           <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
                           <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
