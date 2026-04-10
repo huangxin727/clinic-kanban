@@ -523,13 +523,16 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [tickets])
 
-  // 标题闪烁 + 图标闪烁：页面后台时提醒用户（任务栏图标也会跟着变）
+  // 标题闪烁 + 图标闪烁：仅在页面后台时触发（Windows任务栏会自动高亮）
   const titleBlinkRef = React.useRef(null)
   const originTitle = React.useRef('工单看板')
-  // 预生成红色告警 favicon（data URL）
+  const originFavicon = React.useRef('/favicon.ico')
   const alertFaviconRef = React.useRef(null)
   React.useEffect(() => {
-    // 生成一个红色圆点 favicon
+    // 保存原始 favicon
+    const link = document.querySelector("link[rel*='icon']")
+    if (link) originFaviconRef.current = link.href
+    // 生成红色告警 favicon
     const canvas = document.createElement('canvas')
     canvas.width = 32; canvas.height = 32
     const ctx = canvas.getContext('2d')
@@ -537,7 +540,6 @@ export default function Kanban() {
     ctx.arc(16, 16, 14, 0, Math.PI * 2)
     ctx.fillStyle = '#dc2626'
     ctx.fill()
-    // 白色感叹号
     ctx.fillStyle = '#fff'
     ctx.font = 'bold 20px sans-serif'
     ctx.textAlign = 'center'
@@ -545,34 +547,40 @@ export default function Kanban() {
     ctx.fillText('!', 16, 17)
     alertFaviconRef.current = canvas.toDataURL('image/png')
   }, [])
+
+  const setFavicon = (href) => {
+    let link = document.querySelector("link[rel*='icon']")
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.href = href
+  }
+
   const startTitleBlink = () => {
     if (titleBlinkRef.current) return
+    // 先立即切换一次，让 Windows 任务栏开始高亮
+    document.title = '🔔 工单待接单提醒！'
+    setFavicon(alertFaviconRef.current)
+    // 持续闪烁
     let show = true
     titleBlinkRef.current = setInterval(() => {
-      if (show) {
-        document.title = '🔔 工单待接单提醒！'
-        if (alertFaviconRef.current) {
-          let link = document.querySelector("link[rel*='icon']")
-          if (!link) {
-            link = document.createElement('link')
-            link.rel = 'icon'
-            document.head.appendChild(link)
-          }
-          link.href = alertFaviconRef.current
+      if (document.hidden) {
+        // 页面在后台时才切换（触发 Windows 任务栏高亮）
+        show = !show
+        if (show) {
+          document.title = '🔔 工单待接单提醒！'
+          setFavicon(alertFaviconRef.current)
+        } else {
+          document.title = '⏰ 请查看工单看板'
+          setFavicon(originFaviconRef.current)
         }
       } else {
-        document.title = '⏰ 请查看工单看板'
-        if (alertFaviconRef.current) {
-          let link = document.querySelector("link[rel*='icon']")
-          if (!link) {
-            link = document.createElement('link')
-            link.rel = 'icon'
-            document.head.appendChild(link)
-          }
-          link.href = '/favicon.ico'
-        }
+        // 页面在前台时只切换标题，不切 favicon
+        show = !show
+        document.title = show ? '🔔 工单待接单提醒！' : '⏰ 请查看工单看板'
       }
-      show = !show
     }, 800)
   }
   // 用户聚焦页面时恢复标题和图标
@@ -582,8 +590,7 @@ export default function Kanban() {
         clearInterval(titleBlinkRef.current)
         titleBlinkRef.current = null
         document.title = originTitle.current
-        let link = document.querySelector("link[rel*='icon']")
-        if (link) link.href = '/favicon.ico'
+        setFavicon(originFaviconRef.current)
         setRemindAlerts([])
       }
     }
