@@ -95,8 +95,8 @@ export default async function handler(req, res) {
     await touchUpdate()
 
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
-    // 接单（pending）和开始处理（inprogress）都设忙碌，完成时设空闲
-    const needBusy = updates.member_id && (updates.status === 'inprogress' || updates.status === 'pending' || (!updates.status && (data.status === 'inprogress' || data.status === 'pending')))
+    // 开始处理（inprogress）时设忙碌，完成时设空闲；待处理（pending）保持空闲
+    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
     const needFree = updates.status === 'done'
 
     // 接单/处理时用请求者自身的 member 信息构造响应
