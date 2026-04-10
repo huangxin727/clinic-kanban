@@ -804,6 +804,19 @@ export default function Kanban() {
   const creatingIdsRef = useRef(new Set()) // 正在新建中的工单ID集合
   const creatingTicketsRef = useRef([]) // 乐观创建的工单对象（tempId → ticket）
 
+  // 解析工单的真实 ID（乐观创建的工单使用 tempId，需替换为 _realId）
+  const resolveTicketId = useCallback((t) => {
+    if (t._realId) {
+      // 立即更新本地列表：用真实 ID 替换 tempId
+      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, id: t._realId } : tk))
+      // 清除 tempId 标记
+      creatingIdsRef.current.delete(t.id)
+      creatingTicketsRef.current = creatingTicketsRef.current.filter(tk => tk.id !== t.id)
+      return t._realId
+    }
+    return t.id
+  }, [])
+
   // 统一的 tickets 更新：自动处理删除中/创建中的工单
   // 加入引用相等性检查，避免轮询返回相同数据时触发无意义的重渲染
   const safeSetTickets = useCallback((updaterOrArray) => {
@@ -858,16 +871,19 @@ export default function Kanban() {
     setRemindAlerts(prev => prev.filter(a => a.id !== t.id))
     setAcceptingId(t.id)
 
+    // 如果是乐观创建的工单，用真实 ID 替换 tempId
+    const ticketId = resolveTicketId(t)
+
     const acceptData = { member_id: member.id, status: 'pending', accepted_at: new Date().toISOString() }
 
     try {
-      const res = await api(`/tickets/${t.id}`, {
+      const res = await api(`/tickets/${ticketId}`, {
         method: 'PUT',
         body: JSON.stringify(acceptData)
       })
       // 后端确认成功，乐观更新本地状态
       if (res.success) {
-        setTickets(prev => prev.map(tk => tk.id === t.id
+        setTickets(prev => prev.map(tk => tk.id === ticketId
           ? { ...tk, ...acceptData, member: { id: member.id, name: member.name, role: member.role, color: member.color } }
           : tk
         ))
@@ -905,11 +921,13 @@ export default function Kanban() {
     }
     const now = new Date().toISOString()
     const updates = { status: 'inprogress', started_at: now }
+    // 如果是乐观创建的工单，用真实 ID 替换 tempId
+    const ticketId = resolveTicketId(t)
     // 乐观更新：立即更新本地状态
-    setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, ...updates } : tk))
+    setTickets(prev => prev.map(tk => tk.id === ticketId ? { ...tk, ...updates } : tk))
     showToast(`🚀 开始处理：${t.client}`)
     // 后台异步提交，失败回滚
-    api(`/tickets/${t.id}`, {
+    api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
     }).catch(err => {
@@ -920,6 +938,9 @@ export default function Kanban() {
 
   const deleteTicket = async (id) => {
     if (!confirm('确认删除此工单？')) return
+    // 查找工单对象，检测是否为乐观创建的工单（有 _realId）
+    const ticket = tickets.find(t => t.id === id)
+    const realId = ticket?._realId || id
     // 如果删除的是当前抽屉里的工单，关闭抽屉
     if (drawerTicket && drawerTicket.id === id) {
       setShowDrawer(false)
@@ -927,24 +948,32 @@ export default function Kanban() {
     }
     // 清除该工单的提醒
     remindedRef.current.delete(id)
-    setRemindAlerts(prev => prev.filter(a => a.id !== id))
-    // 标记为删除中，防止 poll 拉回
+    remindedRef.current.delete(realId)
+    setRemindAlerts(prev => prev.filter(a => a.id !== id && a.id !== realId))
+    // 清除乐观创建标记
+    if (ticket?._realId) {
+      creatingIdsRef.current.delete(id)
+      creatingTicketsRef.current = creatingTicketsRef.current.filter(tk => tk.id !== id)
+    }
+    // 标记为删除中，防止 poll 拉回（同时标记 tempId 和 realId）
     deletingIdsRef.current.add(id)
-    // 纯乐观更新：立即从本地移除（通过 safeSetTickets 确保后续 poll 不会拉回）
-    safeSetTickets(prev => prev.filter(t => t.id !== id))
-    // 后台异步删除，失败回滚
+    if (realId !== id) deletingIdsRef.current.add(realId)
+    // 纯乐观更新：立即从本地移除
+    safeSetTickets(prev => prev.filter(t => t.id !== id && t.id !== realId))
+    // 后台异步删除，使用真实 ID
     try {
-      await api(`/tickets/${id}`, { method: 'DELETE' })
+      await api(`/tickets/${realId}`, { method: 'DELETE' })
     } catch (err) {
       deletingIdsRef.current.delete(id)
+      deletingIdsRef.current.delete(realId)
       alert('删除失败: ' + err.message)
       refreshAll()
       return
     }
     // DELETE 成功后延迟清除 deletingIdsRef，确保 poll 有时间拿到删除后的后端数据
-    // 避免时序窗口内 poll 把已删除工单重新拉回
     setTimeout(() => {
       deletingIdsRef.current.delete(id)
+      deletingIdsRef.current.delete(realId)
     }, 3000)
   }
 
