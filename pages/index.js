@@ -603,7 +603,16 @@ export default function Kanban() {
     api(`/tickets/${t.id}`, {
       method: 'PUT',
       body: JSON.stringify({ member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() })
-    }).then(() => refreshAll()).catch(err => {
+    }).then(res => {
+      if (res.data) {
+        // 用 PUT 返回的最新数据直接更新本地，避免 refreshAll 全量拉取时序差导致状态回退
+        setTickets(prev => prev.map(tk => tk.id === t.id
+          ? { ...tk, ...res.data, member: res.data.member || { id: member.id, name: member.name, role: member.role, color: member.color } }
+          : tk
+        ))
+      }
+      refreshAll()
+    }).catch(err => {
       alert('接单失败: ' + err.message)
       refreshAll()
     })
