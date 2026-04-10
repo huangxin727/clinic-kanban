@@ -642,8 +642,8 @@ export default function Kanban() {
     if (showRefresh) setRefreshing(false)
   }, [tickets.length])
 
-  // 快速轮询变更检测（3秒），有变化才全量刷新
-  // 兜底 30 秒强制全量刷新（防止极端情况时间戳未更新）
+  // 轻量轮询变更检测（1秒），有变化才全量刷新
+  // 兜底 15 秒强制全量刷新（防止极端情况时间戳未更新）
   useEffect(() => {
     let lastTs = '0'
     let pollTimer
@@ -664,8 +664,8 @@ export default function Kanban() {
     const init = async () => {
       await refreshAll()
       if (!alive) return
-      pollTimer = setInterval(poll, 3000)
-      forceTimer = setInterval(() => refreshAll(), 30000)
+      pollTimer = setInterval(poll, 1000)
+      forceTimer = setInterval(() => refreshAll(), 15000)
     }
     init()
 
