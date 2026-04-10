@@ -642,8 +642,8 @@ export default function Kanban() {
     if (showRefresh) setRefreshing(false)
   }, [tickets.length])
 
-  // 轻量轮询变更检测（1秒），有变化才全量刷新
-  // 兜底 15 秒强制全量刷新（防止极端情况时间戳未更新）
+  // 轻量轮询变更检测（1秒），有变化直接返回增量数据
+  // 兜底 15 秒强制全量刷新（防止极端情况遗漏）
   useEffect(() => {
     let lastTs = '0'
     let pollTimer
@@ -652,10 +652,14 @@ export default function Kanban() {
 
     const poll = async () => {
       try {
-        const res = await api('/poll')
-        if (alive && res.success && res.ts && res.ts !== lastTs) {
+        const res = await api(`/poll?ts=${lastTs}`)
+        if (alive && res.success && res.changed) {
           lastTs = res.ts
-          refreshAll()
+          // 直接用 poll 返回的 tickets/members 更新，跳过 refreshAll
+          if (res.tickets) setTickets(res.tickets)
+          if (res.members) setMembers(res.members)
+        } else if (alive && res.success && res.ts) {
+          lastTs = res.ts
         }
       } catch {}
     }
@@ -664,6 +668,9 @@ export default function Kanban() {
     const init = async () => {
       await refreshAll()
       if (!alive) return
+      // 用首次加载后的 ts 初始化 lastTs
+      const initRes = await api('/poll')
+      if (initRes?.success && initRes.ts) lastTs = initRes.ts
       pollTimer = setInterval(poll, 1000)
       forceTimer = setInterval(() => refreshAll(), 15000)
     }
