@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, addToList, updateById, removeById, findBy, KEYS, genId } from '@/lib/db'
+import { getAll, addToList, updateById, removeById, findBy, KEYS, genId, touchUpdate } from '@/lib/db'
 
 // 默认配置（首次使用时初始化）
 const DEFAULT_TYPES = [
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     }
 
     const data = await updateById(SETTINGS_KEY, 'default', settings)
+    await touchUpdate()
     return res.json({ success: true, data })
   }
 

@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, addToList, updateById, removeById, KEYS, genId, findBy } from '@/lib/db'
+import { getAll, addToList, updateById, removeById, KEYS, genId, findBy, touchUpdate } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 
 export default async function handler(req, res) {
@@ -47,6 +47,7 @@ export default async function handler(req, res) {
       created_at: new Date().toISOString(),
     }
     await addToList(KEYS.MEMBERS, newMember)
+    await touchUpdate()
     return res.json({ success: true, data: newMember })
   }
 

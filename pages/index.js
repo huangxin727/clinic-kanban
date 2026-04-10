@@ -631,10 +631,38 @@ export default function Kanban() {
     if (showRefresh) setRefreshing(false)
   }, [])
 
-  // 自动轮询刷新（10秒）
+  // 快速轮询变更检测（3秒），有变化才全量刷新
+  // 兜底 30 秒强制全量刷新（防止极端情况时间戳未更新）
   useEffect(() => {
-    const timer = setInterval(() => refreshAll(), 10000)
-    return () => clearInterval(timer)
+    let lastTs = '0'
+    let pollTimer
+    let forceTimer
+    let alive = true
+
+    const poll = async () => {
+      try {
+        const res = await api('/poll')
+        if (alive && res.success && res.ts && res.ts !== lastTs) {
+          lastTs = res.ts
+          refreshAll()
+        }
+      } catch {}
+    }
+
+    // 首次加载完成后启动轮询
+    const init = async () => {
+      await refreshAll()
+      if (!alive) return
+      pollTimer = setInterval(poll, 3000)
+      forceTimer = setInterval(() => refreshAll(), 30000)
+    }
+    init()
+
+    return () => {
+      alive = false
+      clearInterval(pollTimer)
+      clearInterval(forceTimer)
+    }
   }, [refreshAll])
 
   // 过滤工单

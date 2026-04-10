@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, updateById, removeById, addToList, KEYS, genId, findById } from '@/lib/db'
+import { getAll, updateById, removeById, addToList, KEYS, genId, findById, touchUpdate } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -91,6 +91,7 @@ export default async function handler(req, res) {
     ])
     const m = allMembers.find(m => m.id === data.member_id)
 
+    await touchUpdate()
     return res.json({
       success: true,
       data: { ...data, member: m ? { id: m.id, name: m.name, role: m.role, color: m.color } : null }
@@ -112,6 +113,7 @@ export default async function handler(req, res) {
       await autoSetFree(ticket.member_id)
     }
 
+    await touchUpdate()
     return res.json({ success: true })
   }
 

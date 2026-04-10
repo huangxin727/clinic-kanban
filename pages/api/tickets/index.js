@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, addToList, updateById, KEYS, genId, filterBy, findById } from '@/lib/db'
+import { getAll, addToList, updateById, KEYS, genId, filterBy, findById, touchUpdate } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -112,6 +112,7 @@ export default async function handler(req, res) {
       member: m ? { id: m.id, name: m.name, role: m.role, color: m.color } : null
     }
 
+    await touchUpdate()
     return res.json({ success: true, data: enriched })
   }
 

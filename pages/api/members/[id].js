@@ -1,5 +1,5 @@
 import { getUser, getUserMember } from '@/lib/helpers'
-import { updateById, removeById, findById, findBy, KEYS } from '@/lib/db'
+import { updateById, removeById, findById, findBy, KEYS, touchUpdate } from '@/lib/db'
 
 export default async function handler(req, res) {
   const user = await getUser(req)
@@ -19,6 +19,7 @@ export default async function handler(req, res) {
 
     const data = await updateById(KEYS.MEMBERS, id, updates)
     if (!data) return res.status(404).json({ error: '组员不存在' })
+    await touchUpdate()
     return res.json({ success: true, data })
   }
 
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
       await removeById(KEYS.USERS, member.user_id)
     }
 
+    await touchUpdate()
     return res.json({ success: true })
   }
 
