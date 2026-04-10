@@ -1557,6 +1557,16 @@ export default function Kanban() {
           <div className="board">
             <div className="toolbar">
               <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
+              <input placeholder="筛选类型..." value={searchType} onChange={e => setSearchType(e.target.value)} className="search-input" style={{ width: 110 }} />
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
+                <option value="">全部状态</option>
+                {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
+                <option value="">全部负责人</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }} />
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
@@ -1576,11 +1586,10 @@ export default function Kanban() {
                     <table className="assigned-table" style={{ marginBottom: 12 }}>
                       <thead>
                         <tr>
-                          <ThSearchFilter value={search} onChange={v => setSearch(v)} />
-                          <ThSearchFilter value={searchType} onChange={v => setSearchType(v)} label="类型" />
+                          <th>客户</th>
+                          <th>类型</th>
                           <th>负责人</th>
-                          <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
-                          <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
+                          <th>状态</th>
                           <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
@@ -1632,11 +1641,10 @@ export default function Kanban() {
                     <table className="assigned-table">
                       <thead>
                         <tr>
-                          <ThSearchFilter value={search} onChange={v => setSearch(v)} />
-                          <ThSearchFilter value={searchType} onChange={v => setSearchType(v)} label="类型" />
-                          <ThFilter label="负责人" active={!!selectedMember} value={selectedMember} onChange={v => setSelectedMember(v)} options={members.map(m => ({ value: m.id, label: m.name }))} allLabel="全部组员" />
-                          <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
-                          <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
+                          <th>客户</th>
+                          <th>类型</th>
+                          <th>负责人</th>
+                          <th>状态</th>
                           <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
