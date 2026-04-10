@@ -698,7 +698,7 @@ export default function Kanban() {
   // 标题闪烁 + 图标闪烁：仅在页面后台时触发（Windows任务栏会自动高亮）
   const titleBlinkRef = React.useRef(null)
   const originTitle = React.useRef('工单看板')
-  const originFavicon = React.useRef('/favicon.ico')
+  const originFaviconRef = React.useRef('/favicon.ico')
   const alertFaviconRef = React.useRef(null)
   React.useEffect(() => {
     // 保存原始 favicon
