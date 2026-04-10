@@ -851,7 +851,7 @@ export default function Kanban() {
       if (result.length === prev.length) {
         let same = true
         for (let i = 0; i < result.length; i++) {
-          if (result[i].id !== prev[i].id || result[i].updated_at !== prev[i].updated_at || result[i].status !== prev[i].status) {
+          if (result[i].id !== prev[i].id || result[i].updated_at !== prev[i].updated_at || result[i].status !== prev[i].status || result[i].member_id !== prev[i].member_id) {
             same = false
             break
           }
@@ -1086,10 +1086,12 @@ export default function Kanban() {
       setShowDrawer(true)
       setLogInput('')
     }
+    // 如果是乐观创建的工单，用真实 ID 请求后端数据
+    const fetchId = localTicket?._realId || id
     // 后台静默刷新完整数据（含 logs）
     try {
-      const json = await api(`/tickets/${id}`)
-      setDrawerTicket(json.data)
+      const json = await api(`/tickets/${fetchId}`)
+      if (json.data) setDrawerTicket(json.data)
     } catch (err) {
       // 静默失败，本地数据已经展示了
     }

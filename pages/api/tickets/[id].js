@@ -95,18 +95,19 @@ export default async function handler(req, res) {
     await touchUpdate()
 
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
-    // 只有 inprogress 状态才设忙碌，pending 不算忙碌
-    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
+    // 接单（pending）和开始处理（inprogress）都设忙碌，完成时设空闲
+    const needBusy = updates.member_id && (updates.status === 'inprogress' || updates.status === 'pending' || (!updates.status && (data.status === 'inprogress' || data.status === 'pending')))
     const needFree = updates.status === 'done'
 
-    // 接单时用请求者自身的 member 信息构造响应
+    // 接单/处理时用请求者自身的 member 信息构造响应
     const respMember = needBusy
       ? { id: member.id, name: member.name, role: member.role, color: member.color }
       : null
 
     // 后台任务：autoSetBusy/SetFree/releaseLock（不阻塞响应）
+    const busyMemberId = updates.member_id || data.member_id
     Promise.all([
-      needBusy ? autoSetBusy(updates.member_id) : null,
+      needBusy && busyMemberId ? autoSetBusy(busyMemberId) : null,
       needFree ? autoSetFree(data.member_id) : null,
       isAccepting ? releaseAcceptLock(id) : null,
     ]).catch(err => console.error('后台任务失败:', err))

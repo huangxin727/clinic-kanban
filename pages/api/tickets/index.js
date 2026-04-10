@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     const [, , allMembers] = await Promise.all([
       // 接单时自动将成员状态改为忙碌
       (async () => {
-        if (ticket.member_id && ticket.status === 'inprogress') {
+        if (ticket.member_id && (ticket.status === 'inprogress' || ticket.status === 'pending')) {
           await autoSetBusy(ticket.member_id)
         }
       })(),
