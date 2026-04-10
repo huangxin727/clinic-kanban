@@ -665,9 +665,10 @@ export default function Kanban() {
   const lastTsRef = useRef('0')
 
   // 静默 poll：操作后立即触发一次 poll 拉取增量，不等 1 秒定时器
+  // 强制传 ts=0 确保一定能拿到最新数据，避免被定时 poll 抢先更新 lastTsRef 导致检测不到变更
   const silentPoll = useCallback(async () => {
     try {
-      const res = await api(`/poll?ts=${lastTsRef.current}`)
+      const res = await api('/poll?ts=0')
       if (res.success && res.changed) {
         lastTsRef.current = res.ts
         if (res.tickets) safeSetTickets(res.tickets)
