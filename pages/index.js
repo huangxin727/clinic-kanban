@@ -766,27 +766,44 @@ export default function Kanban() {
     setServices([])
   }
 
-  // ===== 接单 =====
-  const acceptTicket = (t) => {
+  // ===== 接单（先发请求确认，避免多人同时接同一工单） =====
+  const [acceptingId, setAcceptingId] = useState(null) // 正在接单的工单ID，防止重复点击
+  const acceptTicket = async (t) => {
     if (!profile) return alert('请先登录')
+    if (acceptingId) return // 防止重复点击
     const member = members.find(m => m.id === profile.id)
     if (!member) return alert('未找到您的组员信息')
     // 清除该工单的提醒
     remindedRef.current.delete(t.id)
     setRemindAlerts(prev => prev.filter(a => a.id !== t.id))
-    // 纯乐观更新：立即生效，不等 PUT 返回
-    setTickets(prev => prev.map(tk => tk.id === t.id
-      ? { ...tk, member_id: member.id, member: { id: member.id, name: member.name, role: member.role, color: member.color }, status: 'inprogress', accepted_at: new Date().toISOString() }
-      : tk
-    ))
-    // 后台异步提交，失败回滚
-    api(`/tickets/${t.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() })
-    }).catch(err => {
-      alert('接单失败: ' + err.message)
+    setAcceptingId(t.id)
+
+    const acceptData = { member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() }
+
+    try {
+      const res = await api(`/tickets/${t.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(acceptData)
+      })
+      // 后端确认成功，乐观更新本地状态
+      if (res.success) {
+        setTickets(prev => prev.map(tk => tk.id === t.id
+          ? { ...tk, ...acceptData, member: { id: member.id, name: member.name, role: member.role, color: member.color } }
+          : tk
+        ))
+      }
+    } catch (err) {
+      // 409 = 已被别人接走，提示并刷新列表
+      const msg = err.message || ''
+      if (msg.includes('已被其他人接走')) {
+        alert('⚠️ 该工单已被其他人接走')
+      } else {
+        alert('接单失败: ' + err.message)
+      }
       refreshAll()
-    })
+    } finally {
+      setAcceptingId(null)
+    }
   }
 
   const deleteTicket = (id) => {
@@ -1295,8 +1312,8 @@ export default function Kanban() {
                                 </div>
                                 {t.note && <div className="card-note" title={t.note}>{t.note}</div>}
                                 <div className="card-actions">
-                                  <button className="btn btn-primary btn-accept" onClick={() => acceptTicket(t)}>
-                                    <span className="accept-icon">✋</span> 接单
+                                  <button className="btn btn-primary btn-accept" disabled={acceptingId === t.id} onClick={() => acceptTicket(t)}>
+                                    <span className="accept-icon">{acceptingId === t.id ? '⏳' : '✋'}</span> {acceptingId === t.id ? '接单中...' : '接单'}
                                   </button>
                                   <div className="card-actions-right">
                                     <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>

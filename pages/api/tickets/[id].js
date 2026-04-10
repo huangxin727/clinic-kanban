@@ -66,6 +66,11 @@ export default async function handler(req, res) {
     // 先查旧数据，判断是否需要记录完成时间
     const oldTicket = await findById(KEYS.TICKETS, id)
 
+    // 接单幂等校验：如果工单已被其他人接走，拒绝操作
+    if (updates.member_id && oldTicket && oldTicket.member_id && oldTicket.member_id !== updates.member_id) {
+      return res.status(409).json({ error: '该工单已被其他人接走' })
+    }
+
     // 只在状态从非done变为done时才记录完成时间（避免编辑已完成的工单覆盖原完成时间）
     if (updates.status === 'done' && (!oldTicket || oldTicket.status !== 'done') && !updates.completed_at) {
       updates.completed_at = new Date().toISOString()
