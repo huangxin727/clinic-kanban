@@ -774,10 +774,17 @@ export default function Kanban() {
       api('/tickets', {
         method: 'POST',
         body: JSON.stringify(payload)
-      }).then(() => {
-        // POST 成功后清除 tempId，后续 poll 返回的真实 ID 工单自然接管
-        creatingIdsRef.current.delete(tempId)
-        creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
+      }).then((res) => {
+        // POST 成功后，记录真实 ID，让后续 poll 用真实 ID 数据无缝替换 tempId
+        // 延迟清除 tempId：等下一次 poll 把真实 ID 工单带回来后再清除
+        // 这样避免 tempId 被清空但 poll 还没拿到新数据的窗口期闪烁
+        if (res?.data?.id) {
+          newTicket._realId = res.data.id
+        }
+        setTimeout(() => {
+          creatingIdsRef.current.delete(tempId)
+          creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
+        }, 3000)
       }).catch(err => {
         creatingIdsRef.current.delete(tempId)
         creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
@@ -798,6 +805,7 @@ export default function Kanban() {
   const creatingTicketsRef = useRef([]) // 乐观创建的工单对象（tempId → ticket）
 
   // 统一的 tickets 更新：自动处理删除中/创建中的工单
+  // 加入引用相等性检查，避免轮询返回相同数据时触发无意义的重渲染
   const safeSetTickets = useCallback((updaterOrArray) => {
     setTickets(prev => {
       const newTickets = typeof updaterOrArray === 'function' ? updaterOrArray(prev) : updaterOrArray
@@ -805,11 +813,37 @@ export default function Kanban() {
       const crtSet = creatingIdsRef.current
       // 过滤掉正在删除中的
       let result = delSet.size > 0 ? newTickets.filter(t => !delSet.has(t.id)) : newTickets
-      // 补回正在创建中的乐观工单（如果新数据里没有的话）
+
+      // 智能替换：如果后端数据中包含已创建工单的真实ID，立即清除对应 tempId
+      // 这样 tempId 乐观工单不再需要补回，直接由真实数据接管
+      if (crtSet.size > 0) {
+        const newIds = new Set(result.map(t => t.id))
+        creatingTicketsRef.current.forEach(ct => {
+          if (ct._realId && newIds.has(ct._realId)) {
+            crtSet.delete(ct.id)
+            creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== ct.id)
+          }
+        })
+      }
+
+      // 补回仍在创建中的乐观工单（如果新数据里没有的话）
       if (crtSet.size > 0) {
         const existingIds = new Set(result.map(t => t.id))
         const toAdd = creatingTicketsRef.current.filter(t => crtSet.has(t.id) && !existingIds.has(t.id))
         if (toAdd.length > 0) result = [...toAdd, ...result]
+      }
+      // 引用相等性检查：如果最终结果和 prev 是同一个引用，React 会跳过重渲染
+      // 额外做浅比较：如果 ID 集合完全一致且关键字段相同，复用 prev 引用避免闪烁
+      if (result === prev) return prev
+      if (result.length === prev.length) {
+        let same = true
+        for (let i = 0; i < result.length; i++) {
+          if (result[i].id !== prev[i].id || result[i].updated_at !== prev[i].updated_at || result[i].status !== prev[i].status) {
+            same = false
+            break
+          }
+        }
+        if (same) return prev
       }
       return result
     })
