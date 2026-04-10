@@ -416,6 +416,13 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [])
 
+  // 请求浏览器通知权限
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
   // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
   const remindedRef = React.useRef(new Set())
   const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
