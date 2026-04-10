@@ -834,11 +834,14 @@ export default function Kanban() {
       let result = delSet.size > 0 ? newTickets.filter(t => !delSet.has(t.id)) : newTickets
 
       // 引用相等性检查：避免 poll 返回相同数据时触发无意义的重渲染
+      // 但如果有删除中的工单，跳过 same 检测，确保数据同步
       if (result === prev) return prev
+      if (delSet.size > 0 || result.length !== prev.length) return result
+      // 长度相同时按 id 集合比较（更可靠，不受排序影响）
       if (result.length === prev.length) {
         let same = true
         for (let i = 0; i < result.length; i++) {
-          if (result[i].id !== prev[i].id || result[i].updated_at !== prev[i].updated_at || result[i].status !== prev[i].status || result[i].member_id !== prev[i].member_id) {
+          if (result[i].updated_at !== prev[i].updated_at || result[i].status !== prev[i].status || result[i].member_id !== prev[i].member_id) {
             same = false
             break
           }
@@ -965,9 +968,8 @@ export default function Kanban() {
       deletingIdsRef.current.delete(id)
       unlockAction(lockKey)
       unlockAction('deleting')
-    }, 3000)
-    // 立即静默同步一次
-    silentPoll()
+    }, 5000)
+    // 不调 silentPoll，依赖乐观更新+定时poll自然同步，避免 poll 返回含已删除工单的数据覆盖乐观删除
   }
 
   // ===== 完成工单 =====
