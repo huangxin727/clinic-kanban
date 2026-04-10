@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const ok = await removeById(KEYS.MEMBERS, id)
     if (!ok) return res.status(404).json({ error: '组员不存在' })
 
-    // 同时删除关联的登录账号
+    // 同时删除关联的登录账号，释放邮箱以便重新邀请
     if (member.user_id) {
       await removeById(KEYS.USERS, member.user_id)
     }
