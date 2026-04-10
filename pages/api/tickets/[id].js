@@ -96,7 +96,8 @@ export default async function handler(req, res) {
 
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
     // 开始处理（inprogress）时设忙碌，完成时设空闲；待处理（pending）保持空闲
-    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
+    // data 是 updateById 返回的已更新数据，直接检查 data.status 即可
+    const needBusy = data.status === 'inprogress' && data.member_id
     const needFree = updates.status === 'done'
 
     // 接单/处理时用请求者自身的 member 信息构造响应
@@ -105,9 +106,9 @@ export default async function handler(req, res) {
       : null
 
     // 后台任务：autoSetBusy/SetFree/releaseLock（不阻塞响应）
-    const busyMemberId = updates.member_id || data.member_id
+    const busyMemberId = data.member_id
     Promise.all([
-      needBusy && busyMemberId ? autoSetBusy(busyMemberId) : null,
+      needBusy ? autoSetBusy(busyMemberId) : null,
       needFree ? autoSetFree(data.member_id) : null,
       isAccepting ? releaseAcceptLock(id) : null,
     ]).catch(err => console.error('后台任务失败:', err))
