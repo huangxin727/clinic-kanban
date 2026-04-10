@@ -483,7 +483,7 @@ export default function Kanban() {
   const [selectedMember, setSelectedMember] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [filterDate, setFilterDate] = useState(getToday())
+  const [filterDate, setFilterDate] = useState('')
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('pool')
   const [loading, setLoading] = useState(true)
