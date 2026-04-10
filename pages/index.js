@@ -366,6 +366,13 @@ export default function Kanban() {
     tickets: dateTickets.filter(t => t.member_id === m.id)
   })), [members, dateTickets])
 
+  // member id → member 对象映射，渲染时从 members state 实时查找，不依赖 ticket.member
+  const memberMap = useMemo(() => {
+    const map = {}
+    members.forEach(m => { map[m.id] = m })
+    return map
+  }, [members])
+
   const [selectedMember, setSelectedMember] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -698,17 +705,15 @@ export default function Kanban() {
   // 兜底 15 秒强制全量刷新（防止极端情况遗漏）
   const lastTsRef = useRef('0')
 
-  // 静默 poll：操作后立即触发一次 poll 拉取增量，不等 1 秒定时器
-  // 强制传 ts=0 确保一定能拿到最新数据，避免被定时 poll 抢先更新 lastTsRef 导致检测不到变更
+  // 静默 poll：操作后触发一次 poll 拉取最新 ts，让定时 poll 自然同步
+  // 不直接 setTickets/setMembers，避免全量数据覆盖导致页面闪烁
   const silentPoll = useCallback(async () => {
     try {
       const res = await api('/poll?ts=0')
-      if (res.success && res.changed) {
-        lastTsRef.current = res.ts
-        if (res.tickets) safeSetTickets(res.tickets)
-        if (res.members) safeSetMembers(res.members)
-      } else if (res.success && res.ts) {
-        lastTsRef.current = res.ts
+      if (res.success && res.ts) {
+        // 将 lastTsRef 设为 ts-1，这样下一次定时 poll 还能检测到变更
+        // 避免 ts=latest 导致定时 poll 认为 changed=false 跳过更新
+        lastTsRef.current = (parseInt(res.ts) - 1).toString()
       }
     } catch {}
   }, [])
@@ -1561,7 +1566,7 @@ export default function Kanban() {
                       </thead>
                       <tbody>
                         {assigned.map(t => {
-                          const m = t.member || {}
+                          const m = memberMap[t.member_id] || {}
                           const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                           const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
                           const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
@@ -1911,7 +1916,7 @@ export default function Kanban() {
               <div className="dg-item"><span className="dg-label">工单号</span><span className="dg-value">{drawerTicket.ticket_no || '-'}</span></div>
               <div className="dg-item"><span className="dg-label">客户</span><span className="dg-value" style={{ fontWeight: 700 }}>{drawerTicket.client}</span></div>
               <div className="dg-item"><span className="dg-label">类型</span><span className="dg-value"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></span></div>
-              <div className="dg-item"><span className="dg-label">负责人</span><span className="dg-value">{drawerTicket.member?.name || '未分配'}</span></div>
+              <div className="dg-item"><span className="dg-label">负责人</span><span className="dg-value">{memberMap[drawerTicket.member_id]?.name || '未分配'}</span></div>
               <div className="dg-item"><span className="dg-label">状态</span><span className="dg-value"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
               <div className="dg-item"><span className="dg-label">预约时间</span><span className="dg-value">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</span></div>
               <div className="dg-item"><span className="dg-label">诊所编码</span><span className="dg-value">{drawerTicket.clinic_code || '未填写'}</span></div>
