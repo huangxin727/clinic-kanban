@@ -808,6 +808,7 @@ export default function Kanban() {
 
   // ===== 接单（先发请求确认，避免多人同时接同一工单） =====
   const [acceptingId, setAcceptingId] = useState(null) // 正在接单的工单ID，防止重复点击
+  const [startingId, setStartingId] = useState(null) // 正在开始处理的工单ID
   const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合
   // 通用操作锁：防止按钮重复点击，格式 "action:id" 或 "action"
   const actionLocksRef = useRef(new Set())
@@ -902,6 +903,7 @@ export default function Kanban() {
       alert('只有负责人或管理员才能开始处理此工单')
       return
     }
+    if (startingId) return // 防止重复点击
     const lockKey = `start:${t.id}`
     if (actionLocksRef.current.has(lockKey)) return
     const now = new Date().toISOString()
@@ -909,16 +911,19 @@ export default function Kanban() {
     // 如果是乐观创建的工单，用真实 ID 替换 tempId
     const ticketId = resolveTicketId(t)
     lockAction(lockKey)
+    setStartingId(t.id)
     // 等 API 返回后确认状态已更新再提示
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
     }).then(() => {
       unlockAction(lockKey)
+      setStartingId(null)
       showToast(`🚀 开始处理：${t.client}`)
       silentPoll()
     }).catch(err => {
       unlockAction(lockKey)
+      setStartingId(null)
       alert('操作失败: ' + err.message)
     })
   }
@@ -1559,11 +1564,14 @@ export default function Kanban() {
                                   {t.status === 'pending' && (isAdmin || t.member_id === profile.id) && (
                                     <button
                                       className="btn-icon"
-                                      title="开始处理"
-                                      style={{ color: '#2563eb' }}
+                                      title={startingId === t.id ? '处理中...' : '开始处理'}
+                                      style={{ color: startingId === t.id ? '#9ca3af' : '#2563eb' }}
+                                      disabled={startingId === t.id}
                                       onClick={(e) => { e.stopPropagation(); startTicket(t) }}
                                     >
-                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                      {startingId === t.id
+                                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
                                     </button>
                                   )}
                                   {t.status !== 'done' && t.status !== 'urgent' && t.status !== 'pending' && (
