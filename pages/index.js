@@ -1026,6 +1026,8 @@ export default function Kanban() {
       deletingIdsRef.current.delete(realId)
       unlockAction(lockKey)
     }, 3000)
+    // 立即刷新一次，同步更新 stats
+    refreshAll()
   }
 
   // ===== 完成工单 =====
