@@ -67,7 +67,8 @@ export default async function handler(req, res) {
     const oldTicket = await findById(KEYS.TICKETS, id)
 
     // 接单幂等校验：用分布式锁（先到先得）
-    const isAccepting = updates.member_id && updates.status === 'inprogress'
+    // 接单时 status 为 pending 或 inprogress 均视为接单操作
+    const isAccepting = updates.member_id && (updates.status === 'pending' || updates.status === 'inprogress')
     if (isAccepting) {
       const lockResult = await tryAcquireAcceptLock(id, updates.member_id)
       if (!lockResult.winner) {
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
     await touchUpdate()
 
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
-    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
+    const needBusy = updates.member_id && (updates.status === 'pending' || updates.status === 'inprogress' || (!updates.status && (data.status === 'pending' || data.status === 'inprogress')))
     const needFree = updates.status === 'done'
 
     // 接单时用请求者自身的 member 信息构造响应
