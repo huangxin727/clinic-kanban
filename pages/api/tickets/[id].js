@@ -1,5 +1,5 @@
 import { getUserMember } from '@/lib/helpers'
-import { getAll, updateById, removeById, addToList, KEYS, genId, findById, touchUpdate } from '@/lib/db'
+import { getAll, updateById, removeById, addToList, KEYS, genId, findById, touchUpdate, tryAcquireAcceptLock, releaseAcceptLock } from '@/lib/db'
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
@@ -66,9 +66,22 @@ export default async function handler(req, res) {
     // 先查旧数据，判断是否需要记录完成时间
     const oldTicket = await findById(KEYS.TICKETS, id)
 
-    // 接单幂等校验：如果工单已被其他人接走，拒绝操作
-    if (updates.member_id && oldTicket && oldTicket.member_id && oldTicket.member_id !== updates.member_id) {
-      return res.status(409).json({ error: '该工单已被其他人接走' })
+    // 接单幂等校验：用分布式锁 + 优先级抢占
+    const isAccepting = updates.member_id && updates.status === 'inprogress'
+    if (isAccepting) {
+      if (oldTicket && oldTicket.member_id && oldTicket.member_id !== updates.member_id) {
+        // 已被别人接走，尝试用优先级抢锁
+        const lockResult = await tryAcquireAcceptLock(id, updates.member_id, member.is_admin)
+        if (!lockResult.winner) {
+          return res.status(409).json({ error: '该工单已被其他人接走' })
+        }
+      } else if (!oldTicket || !oldTicket.member_id) {
+        // 工单未被接，走锁机制防并发
+        const lockResult = await tryAcquireAcceptLock(id, updates.member_id, member.is_admin)
+        if (!lockResult.winner) {
+          return res.status(409).json({ error: '该工单已被其他人接走' })
+        }
+      }
     }
 
     // 只在状态从非done变为done时才记录完成时间（避免编辑已完成的工单覆盖原完成时间）
@@ -94,6 +107,7 @@ export default async function handler(req, res) {
       touchUpdate(),
       needBusy ? autoSetBusy(updates.member_id) : null,
       needFree ? autoSetFree(data.member_id) : null,
+      isAccepting ? releaseAcceptLock(id) : null,
     ]).catch(err => console.error('后台任务失败:', err))
 
     // 对于接单场景，直接用请求者信息构造 member，不再等 getAll(MEMBERS)
