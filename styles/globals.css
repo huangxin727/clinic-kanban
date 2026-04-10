@@ -240,6 +240,11 @@ tr:hover td { background: #fafafa; }
 /* 弹窗大输入框 */
 .input-lg { font-size: 16px !important; padding: 10px 14px !important; font-weight: 600 !important; }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @keyframes slideInRight {
   from { transform: translateX(120%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }

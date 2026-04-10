@@ -1044,16 +1044,14 @@ export default function Kanban() {
     const { ticketId } = completeInfo
     if (!ticketId) return
 
-    // 立即关闭弹窗，等 api 返回后由 poll 自然同步状态
     setCompletingTicket(true)
-    setShowCompleteModal(false)
 
-    // 后台提交，成功后由 poll 自动同步最新状态
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
     }).then(() => {
       setCompletingTicket(false)
+      setShowCompleteModal(false)
       showToast('✅ 工单已完成')
     }).catch(err => {
       setCompletingTicket(false)
@@ -1834,7 +1832,9 @@ export default function Kanban() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={confirmCompleteTicket} disabled={completingTicket}>{completingTicket ? '完成中...' : '确认完成'}</button>
+              <button className="btn btn-primary" onClick={confirmCompleteTicket} disabled={completingTicket} style={{ minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {completingTicket ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 提交中...</> : '确认完成'}
+              </button>
             </div>
           </div>
         </div>
