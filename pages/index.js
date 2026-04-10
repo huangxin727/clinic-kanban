@@ -797,6 +797,15 @@ export default function Kanban() {
           : tk
         ))
         showToast(`✅ 已接单：${t.client}`)
+        // 关闭所有未关闭的提醒弹窗
+        setRemindAlerts([])
+        // 停止标题闪烁
+        if (titleBlinkRef.current) {
+          clearInterval(titleBlinkRef.current)
+          titleBlinkRef.current = null
+          document.title = originTitle.current
+          setFavicon(originFaviconRef.current)
+        }
       }
     } catch (err) {
       // 409 = 已被别人接走，提示并刷新列表
