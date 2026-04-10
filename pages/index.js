@@ -603,6 +603,7 @@ export default function Kanban() {
   // 预约时间提醒：距预约时间≤20分钟且未接单 / 已接单未开始处理
   const remindedRef = React.useRef(new Map())
   const urgedRef = React.useRef(new Map()) // 已催促处理的记录（防重复提醒）
+  const urgeAcceptRef = React.useRef(0) // 催促接单声音防抖时间戳
   const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
   const [toast, setToast] = React.useState(null) // 短暂 toast 提醒
   const showToast = React.useCallback((msg, duration = 2000) => {
@@ -614,8 +615,22 @@ export default function Kanban() {
       const now = Date.now()
       const newAlerts = []
       tickets.forEach(t => {
-        if (!t.deadline) return
         if (t.status === 'done') return
+
+        // 0) 催促接单声音：接单池中显示"请尽快接单"的工单（无预约 或 已过期）
+        // 只要有这类工单存在，就播放提示音（每30秒最多一次）
+        if (!t.member_id && (t.status === 'open' || t.status === 'waiting')) {
+          const noDeadline = !t.deadline
+          const isExpired = t.deadline && new Date(t.deadline).getTime() <= now
+          if (noDeadline || isExpired) {
+            if (now - urgeAcceptRef.current >= 30000) {
+              urgeAcceptRef.current = now
+              try { if (notifyAudioRef.current) { notifyAudioRef.current.currentTime = 0; notifyAudioRef.current.play().catch(() => {}) } } catch {}
+            }
+          }
+        }
+
+        if (!t.deadline) return
         const dl = new Date(t.deadline).getTime()
         const diffMin = (dl - now) / 60000
 
