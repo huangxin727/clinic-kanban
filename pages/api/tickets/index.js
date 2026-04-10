@@ -72,7 +72,7 @@ export default async function handler(req, res) {
       client,
       type,
       status: status || 'inprogress',
-      member_id: member_id || member.id,
+      member_id: member_id || null,
       services: services || [],
       deadline,
       note,
