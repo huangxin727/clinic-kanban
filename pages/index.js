@@ -79,6 +79,28 @@ const Icon = ({ type, size = 16 }) => {
   return icons[type] || null
 }
 
+// 表头日期筛选组件
+const ThDateFilter = ({ value, onChange }) => {
+  const inputRef = React.useRef(null)
+  return (
+    <th style={{ position: 'relative' }}>
+      <label
+        onClick={() => inputRef.current?.showPicker?.()}
+        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, borderBottom: value ? '2px solid #3b82f6' : '2px solid transparent', transition: 'border-color .15s', fontSize: 'inherit', fontWeight: 'inherit' }}
+      >
+        <span style={{ opacity: value ? 1 : 0.5 }}>{value ? value.replace(/^\d{4}-/, '') : '时间'}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
+      </label>
+      {value && (
+        <span onClick={() => onChange('')} style={{ marginLeft: 3, fontSize: 12, color: '#3b82f6', cursor: 'pointer', fontWeight: 700 }}>✕</span>
+      )}
+      <input ref={inputRef} type="date" value={value} onChange={e => onChange(e.target.value)}
+        style={{ position: 'absolute', bottom: -2, left: 0, opacity: 0, width: 0, height: 0, border: 'none', padding: 0 }}
+      />
+    </th>
+  )
+}
+
 // 表头筛选组件 — 点击弹出下拉选择，选中后高亮显示，可点击 ✕ 清除
 const ThFilter = ({ label, active, value, onChange, options, allLabel }) => {
   const [open, setOpen] = useState(false)
@@ -1490,27 +1512,10 @@ export default function Kanban() {
           {/* 工单区 */}
           <div className="board">
             <div className="toolbar">
-              <div className="filter-group">
-                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} title="日期筛选" />
-                <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
-                  <option value="">全部组员</option>
-                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-                <select value={filterType} onChange={e => setFilterType(e.target.value)}>
-                  <option value="">全部类型</option>
-                  {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                  <option value="">全部状态</option>
-                  {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </div>
-              <div className="filter-group">
-                <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
-                {(selectedMember || filterType || filterStatus || filterDate || search) && (
-                  <button className="btn-reset" onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterDate(getToday()); setSearch('') }}>↺ 重置</button>
-                )}
-              </div>
+              <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
+              {(selectedMember || filterType || filterStatus || filterDate || search) && (
+                <button className="btn-reset" onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterDate(getToday()); setSearch('') }}>↺ 重置</button>
+              )}
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
@@ -1533,8 +1538,8 @@ export default function Kanban() {
                           <th>客户</th>
                           <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
                           <th>负责人</th>
-                          <th>状态</th>
-                          <th>时间</th>
+                          <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
+                          <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
                           <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
@@ -1590,7 +1595,7 @@ export default function Kanban() {
                           <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
                           <ThFilter label="负责人" active={!!selectedMember} value={selectedMember} onChange={v => setSelectedMember(v)} options={members.map(m => ({ value: m.id, label: m.name }))} allLabel="全部组员" />
                           <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
-                          <th>时间</th>
+                          <ThDateFilter value={filterDate} onChange={v => setFilterDate(v)} />
                           <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
