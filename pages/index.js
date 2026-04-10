@@ -694,7 +694,7 @@ export default function Kanban() {
   // ===== 工单操作 =====
   const openNewTicket = () => {
     setEditMode(false)
-    setForm({ type: 'init', status: 'inprogress', note: '' })
+    setForm({ type: 'init', status: 'pending', note: '' })
     setServices([])
     setShowTicketModal(true)
   }
@@ -783,7 +783,7 @@ export default function Kanban() {
     setRemindAlerts(prev => prev.filter(a => a.id !== t.id))
     setAcceptingId(t.id)
 
-    const acceptData = { member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() }
+    const acceptData = { member_id: member.id, status: 'pending', accepted_at: new Date().toISOString() }
 
     try {
       const res = await api(`/tickets/${t.id}`, {
@@ -818,6 +818,22 @@ export default function Kanban() {
       refreshAll()
     } finally {
       setAcceptingId(null)
+    }
+  }
+
+  // ===== 开始处理 =====
+  const startTicket = async (t) => {
+    const now = new Date().toISOString()
+    const updates = { status: 'inprogress', started_at: now }
+    try {
+      await api(`/tickets/${t.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      })
+      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, ...updates } : tk))
+      showToast(`🚀 开始处理：${t.client}`)
+    } catch (err) {
+      alert('操作失败: ' + err.message)
     }
   }
 
@@ -1357,6 +1373,7 @@ export default function Kanban() {
                           <th>负责人</th>
                           <th>状态</th>
                           <th>时间</th>
+                          <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
                         </tr>
@@ -1383,6 +1400,19 @@ export default function Kanban() {
                           const timeText = t.completed_at
                             ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
                             : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                          const calcProcessTime = () => {
+                            if (!t.started_at) return null
+                            const start = new Date(t.started_at).getTime()
+                            const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
+                            const diffMs = end - start
+                            if (diffMs < 0) return null
+                            const minutes = Math.floor(diffMs / 60000)
+                            const hours = Math.floor(minutes / 60)
+                            const mins = minutes % 60
+                            if (hours >= 24) { const days = Math.floor(hours / 24); return `${days}天${hours%24}时${mins}分` }
+                            if (hours > 0) return `${hours}时${mins}分`
+                            return `${mins}分`
+                          }
                           return (
                             <tr key={t.id}>
                               <td>
@@ -1398,10 +1428,23 @@ export default function Kanban() {
                               </td>
                               <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
                               <td style={{ fontSize: 13 }}>{timeText}</td>
+                              <td style={{ fontSize: 13, color: t.started_at ? '#2563eb' : '#9ca3af', fontWeight: t.started_at ? 600 : 400 }}>
+                                {t.started_at ? calcProcessTime() : (t.status === 'pending' ? '未开始' : '-')}
+                              </td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
-                                  {t.status !== 'done' && t.status !== 'urgent' && (
+                                  {t.status === 'pending' && (
+                                    <button
+                                      className="btn-icon"
+                                      title="开始处理"
+                                      style={{ color: '#2563eb' }}
+                                      onClick={(e) => { e.stopPropagation(); startTicket(t) }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                    </button>
+                                  )}
+                                  {t.status !== 'done' && t.status !== 'urgent' && t.status !== 'pending' && (
                                     <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
                                   )}
                                   {t.status === 'urgent' && (
