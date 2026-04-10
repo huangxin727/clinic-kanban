@@ -1161,6 +1161,7 @@ export default function Kanban() {
       setCompletingTicket(false)
       setShowCompleteModal(false)
       showToast('✅ 工单已完成')
+      silentPoll()
     }).catch(err => {
       setCompletingTicket(false)
       alert('完成操作失败: ' + err.message)
