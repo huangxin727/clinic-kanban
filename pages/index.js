@@ -685,7 +685,7 @@ export default function Kanban() {
       if (!shouldSkip) {
         safeSetTickets(newTickets)
       }
-      setMembers(d.members || [])
+      safeSetMembers(d.members || [])
       if (d.settings) setSettings(d.settings)
       return d
     } catch (err) {
@@ -706,7 +706,7 @@ export default function Kanban() {
       if (res.success && res.changed) {
         lastTsRef.current = res.ts
         if (res.tickets) safeSetTickets(res.tickets)
-        if (res.members) setMembers(res.members)
+        if (res.members) safeSetMembers(res.members)
       } else if (res.success && res.ts) {
         lastTsRef.current = res.ts
       }
@@ -724,7 +724,7 @@ export default function Kanban() {
         if (alive && res.success && res.changed) {
           lastTsRef.current = res.ts
           if (res.tickets) safeSetTickets(res.tickets)
-          if (res.members) setMembers(res.members)
+          if (res.members) safeSetMembers(res.members)
         } else if (alive && res.success && res.ts) {
           lastTsRef.current = res.ts
         }
@@ -885,6 +885,23 @@ export default function Kanban() {
       return result
     })
   }, [])
+
+  // 统一的 members 更新：引用比较，数据不变时不触发重渲染
+  const safeSetMembers = useCallback((newMembers) => {
+    setMembers(prev => {
+      if (newMembers === prev) return prev
+      if (newMembers.length !== prev.length) return newMembers
+      let same = true
+      for (let i = 0; i < newMembers.length; i++) {
+        if (newMembers[i].status !== prev[i].status || newMembers[i].name !== prev[i].name || newMembers[i].role !== prev[i].role) {
+          same = false
+          break
+        }
+      }
+      return same ? prev : newMembers
+    })
+  }, [])
+
   const acceptTicket = async (t) => {
     if (!profile) return alert('请先登录')
     if (acceptingId) return // 防止重复点击
