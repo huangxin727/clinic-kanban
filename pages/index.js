@@ -1610,7 +1610,8 @@ export default function Kanban() {
                           <th>类型</th>
                           {isAdmin && <th>负责人</th>}
                           <th>状态</th>
-                          <th>处理时间</th>
+                          <th>预约时间</th>
+                          <th>提示</th>
                           <th>备注</th>
                           <th>操作</th>
                         </tr>
@@ -1623,6 +1624,18 @@ export default function Kanban() {
                           const diffMin = dlTs ? (dlTs - Date.now()) / 60000 : null
                           const isUrgentDl = diffMin !== null && diffMin > 0 && diffMin <= 20
                           const isOverdue = diffMin !== null && diffMin <= 0
+                          // 预约时间列
+                          const deadlineCell = t.deadline
+                            ? <><span className={isOverdue ? 'meta-overdue' : isUrgentDl ? 'meta-urgent' : ''}>{fmtDT(t.deadline)}</span>{isOverdue && <span style={{ marginLeft: 4, color: '#dc2626', fontSize: 11 }}>已超{Math.abs(Math.round(diffMin))}分</span>}{isUrgentDl && <span style={{ marginLeft: 4, color: '#d97706', fontSize: 11 }}>剩{Math.round(diffMin)}分</span>}</>
+                            : <span style={{ color: '#9ca3af' }}>未设置</span>
+                          // 提示列：无预约→请尽快接单，过期→请尽快接单
+                          const tipCell = !t.deadline
+                            ? <span style={{ color: '#f59e0b', fontWeight: 600, background: '#fffbeb', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>⏰ 请尽快接单</span>
+                            : isOverdue
+                              ? <span style={{ color: '#dc2626', fontWeight: 600, background: '#fef2f2', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>🔴 请尽快接单</span>
+                              : isUrgentDl
+                                ? <span style={{ color: '#d97706', fontWeight: 600, background: '#fffbeb', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>🟡 即将到期</span>
+                                : <span style={{ color: '#9ca3af' }}>-</span>
                           return (
                             <tr key={t.id} className={isOverdue ? 'card-overdue' : isUrgentDl ? 'card-urgent' : ''}>
                               <td>
@@ -1632,11 +1645,8 @@ export default function Kanban() {
                               <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
                               {isAdmin && <td style={{ color: '#f59e0b', fontWeight: 500 }}>待接单</td>}
                               <td><span className="tag tag-pending">待处理</span></td>
-                              <td style={{ fontSize: 13 }}>
-                                <span>{fmtDT(t.created_at)}</span>
-                                {t.deadline && <span className={isOverdue ? 'meta-overdue' : isUrgentDl ? 'meta-urgent' : ''} style={{ marginLeft: 6 }}>⏰{fmtDT(t.deadline)}{isOverdue && ` 已过期${Math.abs(Math.round(diffMin))}分`}{isUrgentDl && !isOverdue && ` 剩余${Math.round(diffMin)}分`}</span>}
-                              </td>
-                              <td style={{ fontSize: 13, color: '#9ca3af' }}>-</td>
+                              <td style={{ fontSize: 13 }}>{deadlineCell}</td>
+                              <td style={{ fontSize: 13 }}>{tipCell}</td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
@@ -1669,6 +1679,8 @@ export default function Kanban() {
                           <th>类型</th>
                           {isAdmin && <th>负责人</th>}
                           <th>状态</th>
+                          <th>预约时间</th>
+                          <th>接单时间</th>
                           <th>处理时间</th>
                           <th>备注</th>
                           <th>操作</th>
@@ -1680,23 +1692,22 @@ export default function Kanban() {
                           const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                           const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
                           const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
-                          const calcDuration = () => {
-                            if (!t.created_at) return ''
-                            const start = new Date(t.created_at).getTime()
-                            const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
-                            const diffMs = end - start
-                            if (diffMs < 0) return ''
-                            const minutes = Math.floor(diffMs / 60000)
-                            const hours = Math.floor(minutes / 60)
-                            const mins = minutes % 60
-                            if (hours >= 24) { const days = Math.floor(hours / 24); return `${days}天${hours%24}时${mins}分` }
-                            if (hours > 0) return `${hours}时${mins}分`
-                            return `${mins}分`
-                          }
-                          const timeText = t.completed_at
-                            ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
-                            : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
                           void clock
+                          // 预约时间相关计算
+                          const dlTs = t.deadline ? new Date(t.deadline).getTime() : null
+                          const dlDiffMin = dlTs ? (dlTs - Date.now()) / 60000 : null
+                          const isDlOverdue = dlDiffMin !== null && dlDiffMin <= 0 && t.status !== 'done'
+                          const isDlUrgent = dlDiffMin !== null && dlDiffMin > 0 && dlDiffMin <= 20 && t.status !== 'done'
+                          const dlMin = dlDiffMin !== null ? Math.abs(Math.round(dlDiffMin)) : null
+                          // 预约时间列内容
+                          const deadlineCell = t.deadline
+                            ? <><span className={isDlOverdue ? 'meta-overdue' : isDlUrgent ? 'meta-urgent' : ''}>{fmtDT(t.deadline)}</span>{isDlOverdue && <span style={{ marginLeft: 4, color: '#dc2626', fontSize: 11 }}>已超{dlMin}分</span>}{isDlUrgent && <span style={{ marginLeft: 4, color: '#d97706', fontSize: 11 }}>剩{dlMin}分</span>}</>
+                            : <span style={{ color: '#9ca3af' }}>-</span>
+                          // 接单时间列内容
+                          const acceptCell = t.accepted_at
+                            ? <span style={{ color: '#16a34a' }}>{fmtDT(t.accepted_at)}</span>
+                            : <span style={{ color: '#9ca3af' }}>-</span>
+                          // 处理时间列：显示 started_at + 已用时
                           const calcProcessTime = () => {
                             if (!t.started_at) return null
                             const start = new Date(t.started_at).getTime()
@@ -1710,8 +1721,13 @@ export default function Kanban() {
                             if (hours > 0) return `${hours}时${mins}分`
                             return `${mins}分`
                           }
+                          const processCell = t.started_at
+                            ? <><span style={{ color: '#2563eb' }}>{fmtDT(t.started_at)}</span> <span style={{ color: '#6b7280', fontSize: 12 }}>· {calcProcessTime()}</span></>
+                            : <span style={{ color: t.status === 'pending' ? '#f59e0b' : '#9ca3af', fontWeight: t.status === 'pending' ? 600 : 400 }}>{t.status === 'pending' ? '未开始' : '-'}</span>
+                          // 行样式：到预约时间未完成标红
+                          const rowCls = isDlOverdue ? 'card-overdue' : isDlUrgent ? 'card-urgent' : ''
                           return (
-                            <tr key={t.id}>
+                            <tr key={t.id} className={rowCls}>
                               <td>
                                 <div style={{ fontWeight: 600 }}>{t.client}</div>
                                 {t.ticket_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.ticket_no}</div>}
@@ -1724,10 +1740,9 @@ export default function Kanban() {
                                 </div>
                               </td>}
                               <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                              <td style={{ fontSize: 13 }}>{timeText}</td>
-                              <td style={{ fontSize: 13, color: t.started_at ? '#2563eb' : '#9ca3af', fontWeight: t.started_at ? 600 : 400 }}>
-                                {t.started_at ? calcProcessTime() : (t.status === 'pending' ? '未开始' : '-')}
-                              </td>
+                              <td style={{ fontSize: 13 }}>{deadlineCell}</td>
+                              <td style={{ fontSize: 13 }}>{acceptCell}</td>
+                              <td style={{ fontSize: 13 }}>{processCell}</td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
