@@ -653,13 +653,16 @@ export default function Kanban() {
           }
         }
 
-        // 2) 已接单未开始处理（pending）：到了预约时间还没开始处理，催促负责人
+        // 2) 已接单未开始处理（pending）：距预约时间≤20分钟或已超过，催促负责人
         // 仅当当前登录用户就是该工单负责人时弹窗
-        if (t.status === 'pending' && t.member_id && diffMin <= 0 && profile && t.member_id === profile.id) {
+        if (t.status === 'pending' && t.member_id && diffMin <= 20 && profile && t.member_id === profile.id) {
           const urgedCount = (urgedRef.current.get(t.id) || 0)
           if (urgedCount < 5) { // 最多催促5次
             const min = Math.abs(Math.round(diffMin))
-            const msg = `【${t.client}】已超过预约时间 ${min} 分钟，请尽快开始处理！`
+            const isOverdue = diffMin <= 0
+            const msg = isOverdue
+              ? `【${t.client}】已超过预约时间 ${min} 分钟，请尽快开始处理！`
+              : `【${t.client}】预约时间还有 ${min} 分钟，请尽快开始处理！`
             urgedRef.current.set(t.id, urgedCount + 1)
             newAlerts.push({ id: t.id, msg, isOverdue: true, client: t.client, deadline: t.deadline, type: 'urge' })
             // 播放提示音
