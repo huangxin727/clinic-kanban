@@ -729,11 +729,11 @@ export default function Kanban() {
       // 如果抽屉打开着同一个工单，同步更新
       setDrawerTicket(prev => prev && prev.id === form.id ? { ...prev, ...payload, updated_at: now } : prev)
 
-      // 后台异步提交
+      // 后台异步提交，不主动 refreshAll（由 3 秒轮询自然同步）
       api(`/tickets/${form.id}`, {
         method: 'PUT',
         body: JSON.stringify(payload)
-      }).then(() => refreshAll()).catch(err => {
+      }).catch(err => {
         alert('保存失败: ' + err.message)
         refreshAll()
       })
@@ -750,11 +750,12 @@ export default function Kanban() {
       }
       setTickets(prev => [newTicket, ...prev])
 
-      // 后台异步提交
+      // 后台异步提交，不主动 refreshAll（由 3 秒轮询自然同步）
+      // 避免乐观插入的工单因 refreshAll 覆盖而短暂消失
       api('/tickets', {
         method: 'POST',
         body: JSON.stringify(payload)
-      }).then(() => refreshAll()).catch(err => {
+      }).catch(err => {
         alert('保存失败: ' + err.message)
         refreshAll()
       })
@@ -838,12 +839,10 @@ export default function Kanban() {
       )
     }
 
-    // 后台异步提交，失败回滚并提示
+    // 后台异步提交，不主动 refreshAll（由轮询同步）
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
-    }).then(() => {
-      refreshAll()
     }).catch(err => {
       alert('完成操作失败: ' + err.message)
       // 回滚本地状态
@@ -875,11 +874,11 @@ export default function Kanban() {
       setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent', note: urgentNote.trim() } : prev)
     }
     setShowUrgentModal(false)
-    // 后台异步提交
+    // 后台异步提交，不主动 refreshAll（由轮询同步）
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
-    }).then(() => refreshAll()).catch(err => {
+    }).catch(err => {
       alert('操作失败: ' + err.message)
       refreshAll()
     })
@@ -899,10 +898,11 @@ export default function Kanban() {
       setDrawerTicket(prev => prev && prev.id === cancelUrgentId ? { ...prev, status: 'inprogress' } : prev)
     }
     setShowCancelUrgentModal(false)
+    // 后台异步提交，不主动 refreshAll（由轮询同步）
     api(`/tickets/${cancelUrgentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'inprogress' })
-    }).then(() => refreshAll()).catch(err => {
+    }).catch(err => {
       alert('操作失败: ' + err.message)
       refreshAll()
     })
