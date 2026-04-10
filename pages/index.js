@@ -670,19 +670,9 @@ export default function Kanban() {
 
     const poll = async () => {
       try {
-        // 乐观更新后的屏蔽期内跳过 poll，避免覆盖本地最新状态
-        if (Date.now() < skipPollUntilRef.current) {
-          // 仍然更新 lastTs，避免屏蔽结束后堆积大量变更
-          const tsRes = await fetch(`/api/poll?ts=${lastTs}&_t=${Date.now()}`, {
-            headers: { Authorization: `Bearer ${sessionStorage.getItem('kanban_token')}` }
-          }).then(r => r.json()).catch(() => null)
-          if (tsRes?.success && tsRes.ts) lastTs = tsRes.ts
-          return
-        }
         const res = await api(`/poll?ts=${lastTs}`)
         if (alive && res.success && res.changed) {
           lastTs = res.ts
-          // 用 safeSetTickets 确保删除中/创建中的工单被正确处理
           if (res.tickets) safeSetTickets(res.tickets)
           if (res.members) setMembers(res.members)
         } else if (alive && res.success && res.ts) {
@@ -779,50 +769,16 @@ export default function Kanban() {
         refreshAll()
       })
     } else {
-      // 新建模式：乐观插入本地列表顶部
-      const tempId = 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-      const currentMember = payload.member_id ? members.find(m => m.id === payload.member_id) : null
-      const newTicket = {
-        ...payload,
-        id: tempId,
-        created_at: now,
-        updated_at: now,
-        member: currentMember ? { id: currentMember.id, name: currentMember.name, role: currentMember.role, color: currentMember.color } : null,
-      }
-      creatingIdsRef.current.add(tempId)
-      creatingTicketsRef.current = [...creatingTicketsRef.current.filter(t => t.id !== tempId), newTicket]
-      safeSetTickets(prev => [newTicket, ...prev])
-
-      // 后台异步提交
+      // 新建模式：等 POST 返回后刷新，不做乐观创建
       api('/tickets', {
         method: 'POST',
         body: JSON.stringify(payload)
       }).then((res) => {
-        if (res?.data?.id) {
-          // POST 成功后，立即用真实 ID 替换本地 tempId 工单
-          const realId = res.data.id
-          setTickets(prev => prev.map(tk => tk.id === tempId
-            ? { ...tk, id: realId, ...res.data, member: res.data.member || tk.member }
-            : tk
-          ))
-          // 清除 tempId 标记
-          creatingIdsRef.current.delete(tempId)
-          creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
-          // POST 成功后才屏蔽 poll 5 秒，避免 poll 用旧数据覆盖
-          skipPollUntilRef.current = Date.now() + 5000
-          setSavingTicket(false)
-          // 如果抽屉打开着这个工单，同步更新
-          setDrawerTicket(prev => prev && prev.id === tempId
-            ? { ...prev, id: realId, ...res.data, member: res.data.member || prev.member }
-            : prev
-          )
-        }
-      }).catch(err => {
-        creatingIdsRef.current.delete(tempId)
-        creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
-        alert('保存失败: ' + err.message)
-        skipPollUntilRef.current = 0
         setSavingTicket(false)
+        refreshAll()
+      }).catch(err => {
+        setSavingTicket(false)
+        alert('保存失败: ' + err.message)
         refreshAll()
       })
     }
@@ -835,9 +791,6 @@ export default function Kanban() {
   // ===== 接单（先发请求确认，避免多人同时接同一工单） =====
   const [acceptingId, setAcceptingId] = useState(null) // 正在接单的工单ID，防止重复点击
   const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合
-  const creatingIdsRef = useRef(new Set()) // 正在新建中的工单ID集合
-  const creatingTicketsRef = useRef([]) // 乐观创建的工单对象（tempId → ticket）
-  const skipPollUntilRef = useRef(0) // poll 屏蔽截止时间戳，乐观更新后短暂屏蔽 poll 覆盖
   // 通用操作锁：防止按钮重复点击，格式 "action:id" 或 "action"
   const actionLocksRef = useRef(new Set())
   const [actionLoading, setActionLoading] = useState('') // 当前正在执行的操作 key（用于 UI disabled）
@@ -850,18 +803,7 @@ export default function Kanban() {
     setActionLoading(prev => prev === key ? '' : prev)
   }, [])
 
-  // 解析工单的真实 ID（乐观创建的工单使用 tempId，需替换为 _realId）
-  const resolveTicketId = useCallback((t) => {
-    if (t._realId) {
-      // 立即更新本地列表：用真实 ID 替换 tempId
-      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, id: t._realId } : tk))
-      // 清除 tempId 标记
-      creatingIdsRef.current.delete(t.id)
-      creatingTicketsRef.current = creatingTicketsRef.current.filter(tk => tk.id !== t.id)
-      return t._realId
-    }
-    return t.id
-  }, [])
+  const resolveTicketId = useCallback((t) => t.id, [])
 
   // 统一的 tickets 更新：自动处理删除中/创建中的工单
   // 加入引用相等性检查，避免轮询返回相同数据时触发无意义的重渲染
@@ -869,30 +811,10 @@ export default function Kanban() {
     setTickets(prev => {
       const newTickets = typeof updaterOrArray === 'function' ? updaterOrArray(prev) : updaterOrArray
       const delSet = deletingIdsRef.current
-      const crtSet = creatingIdsRef.current
       // 过滤掉正在删除中的
       let result = delSet.size > 0 ? newTickets.filter(t => !delSet.has(t.id)) : newTickets
 
-      // 智能替换：如果后端数据中包含已创建工单的真实ID，立即清除对应 tempId
-      // 这样 tempId 乐观工单不再需要补回，直接由真实数据接管
-      if (crtSet.size > 0) {
-        const newIds = new Set(result.map(t => t.id))
-        creatingTicketsRef.current.forEach(ct => {
-          if (ct._realId && newIds.has(ct._realId)) {
-            crtSet.delete(ct.id)
-            creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== ct.id)
-          }
-        })
-      }
-
-      // 补回仍在创建中的乐观工单（如果新数据里没有的话）
-      if (crtSet.size > 0) {
-        const existingIds = new Set(result.map(t => t.id))
-        const toAdd = creatingTicketsRef.current.filter(t => crtSet.has(t.id) && !existingIds.has(t.id))
-        if (toAdd.length > 0) result = [...toAdd, ...result]
-      }
-      // 引用相等性检查：如果最终结果和 prev 是同一个引用，React 会跳过重渲染
-      // 额外做浅比较：如果 ID 集合完全一致且关键字段相同，复用 prev 引用避免闪烁
+      // 引用相等性检查：避免 poll 返回相同数据时触发无意义的重渲染
       if (result === prev) return prev
       if (result.length === prev.length) {
         let same = true
@@ -988,9 +910,6 @@ export default function Kanban() {
     const lockKey = `del:${id}`
     if (actionLocksRef.current.has(lockKey)) return
     lockAction(lockKey)
-    // 查找工单对象，检测是否为乐观创建的工单（有 _realId）
-    const ticket = tickets.find(t => t.id === id)
-    const realId = ticket?._realId || id
     // 如果删除的是当前抽屉里的工单，关闭抽屉
     if (drawerTicket && drawerTicket.id === id) {
       setShowDrawer(false)
@@ -998,24 +917,16 @@ export default function Kanban() {
     }
     // 清除该工单的提醒
     remindedRef.current.delete(id)
-    remindedRef.current.delete(realId)
-    setRemindAlerts(prev => prev.filter(a => a.id !== id && a.id !== realId))
-    // 清除乐观创建标记
-    if (ticket?._realId) {
-      creatingIdsRef.current.delete(id)
-      creatingTicketsRef.current = creatingTicketsRef.current.filter(tk => tk.id !== id)
-    }
-    // 标记为删除中，防止 poll 拉回（同时标记 tempId 和 realId）
+    setRemindAlerts(prev => prev.filter(a => a.id !== id))
+    // 标记为删除中，防止 poll 拉回
     deletingIdsRef.current.add(id)
-    if (realId !== id) deletingIdsRef.current.add(realId)
     // 纯乐观更新：立即从本地移除
-    safeSetTickets(prev => prev.filter(t => t.id !== id && t.id !== realId))
-    // 后台异步删除，使用真实 ID
+    safeSetTickets(prev => prev.filter(t => t.id !== id))
+    // 后台异步删除
     try {
-      await api(`/tickets/${realId}`, { method: 'DELETE' })
+      await api(`/tickets/${id}`, { method: 'DELETE' })
     } catch (err) {
       deletingIdsRef.current.delete(id)
-      deletingIdsRef.current.delete(realId)
       unlockAction(lockKey)
       alert('删除失败: ' + err.message)
       refreshAll()
@@ -1024,7 +935,6 @@ export default function Kanban() {
     // DELETE 成功后延迟清除 deletingIdsRef，确保 poll 有时间拿到删除后的后端数据
     setTimeout(() => {
       deletingIdsRef.current.delete(id)
-      deletingIdsRef.current.delete(realId)
       unlockAction(lockKey)
     }, 3000)
     // 立即刷新一次，同步更新 stats
@@ -1120,7 +1030,7 @@ export default function Kanban() {
       setLogInput('')
     }
     // 如果是乐观创建的工单，用真实 ID 请求后端数据
-    const fetchId = localTicket?._realId || id
+    const fetchId = id
     // 后台静默刷新完整数据（含 logs）
     try {
       const json = await api(`/tickets/${fetchId}`)
