@@ -73,6 +73,12 @@ export default async function handler(req, res) {
       if (!lockResult.winner) {
         return res.status(409).json({ error: '该工单已被其他人接走' })
       }
+      // 在锁内重新读取工单，确认未被接走
+      const freshTicket = await findById(KEYS.TICKETS, id)
+      if (freshTicket && freshTicket.member_id && freshTicket.member_id !== updates.member_id) {
+        await releaseAcceptLock(id)
+        return res.status(409).json({ error: '该工单已被其他人接走' })
+      }
     }
 
     // 只在状态从非done变为done时才记录完成时间（避免编辑已完成的工单覆盖原完成时间）
