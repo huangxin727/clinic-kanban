@@ -898,6 +898,11 @@ export default function Kanban() {
 
   // ===== 开始处理 =====
   const startTicket = (t) => {
+    // 仅管理员或工单负责人可以开始处理
+    if (!isAdmin && t.member_id !== profile.id) {
+      alert('只有负责人或管理员才能开始处理此工单')
+      return
+    }
     const now = new Date().toISOString()
     const updates = { status: 'inprogress', started_at: now }
     // 乐观更新：立即更新本地状态
@@ -1518,7 +1523,7 @@ export default function Kanban() {
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
-                                  {t.status === 'pending' && (
+                                  {t.status === 'pending' && (isAdmin || t.member_id === profile.id) && (
                                     <button
                                       className="btn-icon"
                                       title="开始处理"
