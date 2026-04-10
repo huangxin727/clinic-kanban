@@ -467,12 +467,39 @@ export default function Kanban() {
       })
       if (newAlerts.length > 0) {
         setRemindAlerts(prev => [...prev, ...newAlerts])
+        // 页面在后台时，标题闪烁提醒
+        startTitleBlink()
       }
     }
     check()
     const timer = setInterval(check, 60000)
     return () => clearInterval(timer)
   }, [tickets])
+
+  // 标题闪烁：页面后台时提醒用户
+  const titleBlinkRef = React.useRef(null)
+  const originTitle = React.useRef('工单看板')
+  const startTitleBlink = () => {
+    if (titleBlinkRef.current) return // 已在闪烁
+    let show = true
+    titleBlinkRef.current = setInterval(() => {
+      document.title = show ? '🔔 工单待接单提醒！' : '⏰ 请查看工单看板'
+      show = !show
+    }, 1000)
+  }
+  // 用户聚焦页面时恢复标题
+  useEffect(() => {
+    const onFocus = () => {
+      if (titleBlinkRef.current) {
+        clearInterval(titleBlinkRef.current)
+        titleBlinkRef.current = null
+        document.title = originTitle.current
+        setRemindAlerts([])
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   // 加载 profile
   const loadProfile = async (user) => {
