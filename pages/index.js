@@ -1601,7 +1601,7 @@ export default function Kanban() {
 
       {/* 预约提醒弹窗（页面内） */}
       {remindAlerts.length > 0 && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380 }}>
+        <div style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 10000, display: 'flex', flexDirection: 'column-reverse', gap: 10, maxWidth: 380 }}>
           {remindAlerts.map((a, i) => (
             <div key={a.id + i} style={{
               background: a.isOverdue ? '#fef2f2' : '#fffbeb',
