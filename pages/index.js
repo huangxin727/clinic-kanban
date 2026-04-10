@@ -565,7 +565,7 @@ export default function Kanban() {
     } else {
       // 新建模式：乐观插入本地列表顶部
       const tempId = 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-      const currentMember = members.find(m => m.id === (payload.member_id || profile?.id))
+      const currentMember = payload.member_id ? members.find(m => m.id === payload.member_id) : null
       const newTicket = {
         ...payload,
         id: tempId,
