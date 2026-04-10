@@ -134,12 +134,12 @@ export default async function handler(req, res) {
     const ok = await removeById(KEYS.TICKETS, id)
     if (!ok) return res.status(404).json({ error: '工单不存在' })
 
-    // 后台任务：touchUpdate + autoSetFree（不阻塞响应）
+    // 先确保时间戳更新（阻塞），避免 poll 触发 refreshAll 拿到旧数据
+    await touchUpdate()
+
+    // 后台任务：autoSetFree（不阻塞响应）
     const memberId = ticket.member_id && ticket.status === 'inprogress' ? ticket.member_id : null
-    Promise.all([
-      touchUpdate(),
-      memberId ? autoSetFree(memberId) : null,
-    ]).catch(err => console.error('后台任务失败:', err))
+    if (memberId) autoSetFree(memberId).catch(err => console.error('autoSetFree失败:', err))
 
     return res.json({ success: true })
   }

@@ -624,9 +624,15 @@ export default function Kanban() {
     try {
       const res = await api(`/init?date=${getToday()}&tz=${-new Date().getTimezoneOffset()/60}`)
       const d = res.data || {}
-      setTickets(d.tickets || [])
+      const newTickets = d.tickets || []
+      const newStats = d.stats || { total: 0, inprogress: 0, done: 0, urgent: 0 }
+      // 保护：如果本地已有工单但刷新返回空列表且统计显示有工单，说明数据不完整，跳过本次更新
+      const shouldSkip = newTickets.length === 0 && newStats.total > 0 && tickets.length > 0
+      if (!shouldSkip) {
+        setTickets(newTickets)
+      }
       setMembers(d.members || [])
-      setStats(d.stats || { total: 0, inprogress: 0, done: 0, urgent: 0 })
+      setStats(newStats)
       setMemberStats(d.memberStats || [])
       if (d.settings) setSettings(d.settings)
       return d
@@ -634,7 +640,7 @@ export default function Kanban() {
       console.error('刷新失败:', err)
     }
     if (showRefresh) setRefreshing(false)
-  }, [])
+  }, [tickets.length])
 
   // 快速轮询变更检测（3秒），有变化才全量刷新
   // 兜底 30 秒强制全量刷新（防止极端情况时间戳未更新）
@@ -837,7 +843,7 @@ export default function Kanban() {
     }
   }
 
-  const deleteTicket = (id) => {
+  const deleteTicket = async (id) => {
     if (!confirm('确认删除此工单？')) return
     // 如果删除的是当前抽屉里的工单，关闭抽屉
     if (drawerTicket && drawerTicket.id === id) {
@@ -850,10 +856,12 @@ export default function Kanban() {
     // 纯乐观更新：立即从本地移除
     setTickets(prev => prev.filter(t => t.id !== id))
     // 后台异步删除，失败回滚
-    api(`/tickets/${id}`, { method: 'DELETE' }).catch(err => {
+    try {
+      await api(`/tickets/${id}`, { method: 'DELETE' })
+    } catch (err) {
       alert('删除失败: ' + err.message)
       refreshAll()
-    })
+    }
   }
 
   // ===== 完成工单 =====
