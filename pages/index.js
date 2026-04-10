@@ -762,6 +762,7 @@ export default function Kanban() {
         body: JSON.stringify(payload)
       }).then(() => {
         setSavingTicket(false)
+        showToast('✅ 工单已更新')
         refreshAll()
       }).catch(err => {
         alert('保存失败: ' + err.message)
@@ -775,6 +776,7 @@ export default function Kanban() {
         body: JSON.stringify(payload)
       }).then((res) => {
         setSavingTicket(false)
+        showToast('✅ 工单已创建')
         refreshAll()
       }).catch(err => {
         setSavingTicket(false)
@@ -925,6 +927,7 @@ export default function Kanban() {
     // 后台异步删除
     try {
       await api(`/tickets/${id}`, { method: 'DELETE' })
+      showToast('🗑️ 工单已删除')
     } catch (err) {
       deletingIdsRef.current.delete(id)
       unlockAction(lockKey)
@@ -964,6 +967,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
     }).then(() => {
       setCompletingTicket(false)
+      showToast('✅ 工单已完成')
     }).catch(err => {
       setCompletingTicket(false)
       alert('完成操作失败: ' + err.message)
@@ -989,6 +993,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
     }).then(() => {
       unlockAction(`urgent:${ticketId}`)
+      showToast('🚩 已标为需跟进')
       refreshAll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
@@ -1013,6 +1018,7 @@ export default function Kanban() {
       body: JSON.stringify({ status: 'inprogress' })
     }).then(() => {
       unlockAction(`cancelUrgent:${cancelUrgentId}`)
+      showToast('✅ 已取消需跟进')
       refreshAll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
@@ -1063,6 +1069,7 @@ export default function Kanban() {
         body: JSON.stringify({ note: newNote })
       })
       setLogInput('')
+      showToast('📝 工作记录已添加')
       // 4. 再次刷新，确保列表和抽屉数据一致
       await refreshAll()
       openDrawer(drawerTicket.id)
@@ -1087,6 +1094,7 @@ export default function Kanban() {
       })
       setShowMemberModal(false)
       setMemberForm({ name: '', role: '全能', status: 'free', email: '', password: '' })
+      showToast('✅ 组员已添加')
       refreshAll()
       unlockAction('saveMember')
     } catch (err) {
@@ -1121,6 +1129,7 @@ export default function Kanban() {
     lockAction(`removeMember:${m.id}`)
     try {
       await api(`/members/${m.id}`, { method: 'DELETE' })
+      showToast(`🗑️ 已移除组员「${m.name}」`)
       refreshAll()
       unlockAction(`removeMember:${m.id}`)
     } catch (err) {
@@ -1699,6 +1708,7 @@ export default function Kanban() {
               })
               setSettings(prev => ({ ...prev, ...newSettings }))
               setShowSettingsModal(false)
+              showToast('✅ 设置已保存')
               refreshAll()
               unlockAction('saveSettings')
             } catch (err) {
