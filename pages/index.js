@@ -1562,10 +1562,10 @@ export default function Kanban() {
                 <option value="">全部状态</option>
                 {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
+              {isAdmin && <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
                 <option value="">全部负责人</option>
                 {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
+              </select>}
               <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }} />
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
@@ -1573,11 +1573,120 @@ export default function Kanban() {
             </div>
 
             <div className="ticket-section">
-              <div className="section-header">
-                <span className="title">工单列表</span>
-                <span className="badge">{filteredTickets.length}</span>
-              </div>
+              {/* 组员视图：只显示自己的工单 */}
+              {!isAdmin ? (
+                <div className="section-header">
+                  <span className="title">我的工单</span>
+                  <span className="badge">{filteredTickets.filter(t => t.member_id === profile.id).length}</span>
+                </div>
+              ) : (
+                <div className="section-header">
+                  <span className="title">工单列表</span>
+                  <span className="badge">{filteredTickets.length}</span>
+                </div>
+              )}
               <div style={{ overflowX: 'auto' }}>
+                {/* 组员视图：单个表格展示自己的所有工单 */}
+                {!isAdmin && (() => {
+                  const myTickets = filteredTickets.filter(t => t.member_id === profile.id)
+                  return myTickets.length > 0 ? (
+                    <table className="assigned-table">
+                      <thead>
+                        <tr>
+                          <th>客户</th>
+                          <th>类型</th>
+                          <th>状态</th>
+                          <th>处理时间</th>
+                          <th>备注</th>
+                          <th>操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myTickets.map(t => {
+                          const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
+                          const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
+                          const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
+                          const calcDuration = () => {
+                            if (!t.created_at) return ''
+                            const start = new Date(t.created_at).getTime()
+                            const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
+                            const diffMs = end - start
+                            if (diffMs < 0) return ''
+                            const minutes = Math.floor(diffMs / 60000)
+                            const hours = Math.floor(minutes / 60)
+                            const mins = minutes % 60
+                            if (hours >= 24) { const days = Math.floor(hours / 24); return `${days}天${hours%24}时${mins}分` }
+                            if (hours > 0) return `${hours}时${mins}分`
+                            return `${mins}分`
+                          }
+                          const timeText = t.completed_at
+                            ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                            : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                          void clock
+                          const calcProcessTime = () => {
+                            if (!t.started_at) return null
+                            const start = new Date(t.started_at).getTime()
+                            const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
+                            const diffMs = end - start
+                            if (diffMs < 0) return null
+                            const minutes = Math.floor(diffMs / 60000)
+                            const hours = Math.floor(minutes / 60)
+                            const mins = minutes % 60
+                            if (hours >= 24) { const days = Math.floor(hours / 24); return `${days}天${hours%24}时${mins}分` }
+                            if (hours > 0) return `${hours}时${mins}分`
+                            return `${mins}分`
+                          }
+                          return (
+                            <tr key={t.id}>
+                              <td>
+                                <div style={{ fontWeight: 600 }}>{t.client}</div>
+                                {t.ticket_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.ticket_no}</div>}
+                              </td>
+                              <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
+                              <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
+                              <td style={{ fontSize: 13 }}>{timeText}</td>
+                              <td style={{ fontSize: 13, color: t.started_at ? '#2563eb' : '#9ca3af', fontWeight: t.started_at ? 600 : 400 }}>
+                                {t.started_at ? calcProcessTime() : (t.status === 'pending' ? '未开始' : '-')}
+                              </td>
+                              <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
+                              <td>
+                                <div className="action-group">
+                                  {t.status === 'pending' && (
+                                    <button
+                                      className="btn-icon"
+                                      title={startingId === t.id ? '处理中...' : '开始处理'}
+                                      style={{ color: startingId === t.id ? '#9ca3af' : '#2563eb' }}
+                                      disabled={startingId === t.id}
+                                      onClick={(e) => { e.stopPropagation(); startTicket(t) }}
+                                    >
+                                      {startingId === t.id
+                                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
+                                    </button>
+                                  )}
+                                  {t.status !== 'done' && t.status !== 'urgent' && t.status !== 'pending' && (
+                                    <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
+                                  )}
+                                  {t.status === 'urgent' && (
+                                    <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
+                                  )}
+                                  {t.status !== 'done' && (
+                                    <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
+                                  )}
+                                  <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
+                                  <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  ) : <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>暂无工单</div>
+                })()}
+
+                {/* 组长视图：工单池 + 工单列表 */}
+                {isAdmin && <>
                 {/* 待接单区域 — 表格布局 */}
                 {(() => {
                   const unassigned = filteredTickets.filter(t => !t.member_id)
@@ -1746,6 +1855,7 @@ export default function Kanban() {
                     </table>
                   )
                 })()}
+                </>}
               </div>
             </div>
           </div>
