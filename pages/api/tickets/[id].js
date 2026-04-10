@@ -3,8 +3,7 @@ import { getAll, updateById, removeById, addToList, KEYS, genId, findById, touch
 
 // 自动将成员设为忙碌（仅空闲时生效）
 async function autoSetBusy(memberId) {
-  const members = await getAll(KEYS.MEMBERS)
-  const m = members.find(m => m.id === memberId)
+  const m = await findById(KEYS.MEMBERS, memberId)
   if (m && m.status === 'free') {
     await updateById(KEYS.MEMBERS, memberId, { status: 'busy' })
   }
@@ -75,23 +74,34 @@ export default async function handler(req, res) {
     const data = await updateById(KEYS.TICKETS, id, updates)
     if (!data) return res.status(404).json({ error: '工单不存在' })
 
-    // 并行：自动状态管理 + 关联 member 查询（减少串行等待）
-    const [, allMembers] = await Promise.all([
-      // 自动状态管理
-      (async () => {
-        if (updates.status === 'done') {
-          await autoSetFree(data.member_id)
-        }
-        if (updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))) {
-          await autoSetBusy(updates.member_id)
-        }
-      })(),
-      // 关联 member
-      getAll(KEYS.MEMBERS),
-    ])
-    const m = allMembers.find(m => m.id === data.member_id)
+    // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
+    const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
+    const needFree = updates.status === 'done'
 
-    await touchUpdate()
+    // touchUpdate + 状态管理全部 fire-and-forget，不阻塞响应
+    // 接单时用请求者自身的 member 信息构造响应
+    const respMember = needBusy
+      ? { id: member.id, name: member.name, role: member.role, color: member.color }
+      : null
+
+    // 后台任务：touchUpdate + autoSetBusy/SetFree（不阻塞响应）
+    Promise.all([
+      touchUpdate(),
+      needBusy ? autoSetBusy(updates.member_id) : null,
+      needFree ? autoSetFree(data.member_id) : null,
+    ]).catch(err => console.error('后台任务失败:', err))
+
+    // 对于接单场景，直接用请求者信息构造 member，不再等 getAll(MEMBERS)
+    if (respMember) {
+      return res.json({
+        success: true,
+        data: { ...data, member: updates.member_id === member.id ? respMember : null }
+      })
+    }
+
+    // 其他场景仍需查询 member 信息
+    const allMembers = await getAll(KEYS.MEMBERS)
+    const m = allMembers.find(m => m.id === data.member_id)
     return res.json({
       success: true,
       data: { ...data, member: m ? { id: m.id, name: m.name, role: m.role, color: m.color } : null }
@@ -108,12 +118,13 @@ export default async function handler(req, res) {
     const ok = await removeById(KEYS.TICKETS, id)
     if (!ok) return res.status(404).json({ error: '工单不存在' })
 
-    // 删除后检查该成员是否还有进行中工单，没有则恢复空闲
-    if (ticket.member_id && ticket.status === 'inprogress') {
-      await autoSetFree(ticket.member_id)
-    }
+    // 后台任务：touchUpdate + autoSetFree（不阻塞响应）
+    const memberId = ticket.member_id && ticket.status === 'inprogress' ? ticket.member_id : null
+    Promise.all([
+      touchUpdate(),
+      memberId ? autoSetFree(memberId) : null,
+    ]).catch(err => console.error('后台任务失败:', err))
 
-    await touchUpdate()
     return res.json({ success: true })
   }
 

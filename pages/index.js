@@ -773,23 +773,15 @@ export default function Kanban() {
     // 清除该工单的提醒
     remindedRef.current.delete(t.id)
     setRemindAlerts(prev => prev.filter(a => a.id !== t.id))
-    // 乐观更新
+    // 纯乐观更新：立即生效，不等 PUT 返回
     setTickets(prev => prev.map(tk => tk.id === t.id
       ? { ...tk, member_id: member.id, member: { id: member.id, name: member.name, role: member.role, color: member.color }, status: 'inprogress', accepted_at: new Date().toISOString() }
       : tk
     ))
+    // 后台异步提交，失败回滚
     api(`/tickets/${t.id}`, {
       method: 'PUT',
       body: JSON.stringify({ member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() })
-    }).then(res => {
-      if (res.data) {
-        // 用 PUT 返回的最新数据直接更新本地，避免 refreshAll 全量拉取时序差导致状态回退
-        setTickets(prev => prev.map(tk => tk.id === t.id
-          ? { ...tk, ...res.data, member: res.data.member || { id: member.id, name: member.name, role: member.role, color: member.color } }
-          : tk
-        ))
-      }
-      refreshAll()
     }).catch(err => {
       alert('接单失败: ' + err.message)
       refreshAll()
@@ -806,10 +798,10 @@ export default function Kanban() {
     // 清除该工单的提醒
     remindedRef.current.delete(id)
     setRemindAlerts(prev => prev.filter(a => a.id !== id))
-    // 乐观更新：立即从本地移除
+    // 纯乐观更新：立即从本地移除
     setTickets(prev => prev.filter(t => t.id !== id))
     // 后台异步删除，失败回滚
-    api(`/tickets/${id}`, { method: 'DELETE' }).then(() => refreshAll()).catch(err => {
+    api(`/tickets/${id}`, { method: 'DELETE' }).catch(err => {
       alert('删除失败: ' + err.message)
       refreshAll()
     })
