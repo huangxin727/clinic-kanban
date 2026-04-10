@@ -96,12 +96,10 @@ const ThSearchFilter = ({ value, onChange }) => {
         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, borderBottom: value ? '2px solid #3b82f6' : '2px solid transparent', transition: 'border-color .15s' }}
       >
         <span>{value ? value : '客户'}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: value ? 1 : 0.4, flexShrink: 0 }}>
-          {open
-            ? <rect x="3" y="3" width="7" height="7" rx="1"/><line x1="15" y1="15" x2="21" y2="21"/>
-            : <polyline points="6 9 12 15 18 9"/>
-          }
-        </svg>
+        {open
+          ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="3" y="3" width="7" height="7" rx="1"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: value ? 1 : 0.4, flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
+        }
       </span>
       {value && (
         <span onClick={e => { e.stopPropagation(); onChange('') }} style={{ marginLeft: 3, fontSize: 12, color: '#3b82f6', cursor: 'pointer', fontWeight: 700 }}>✕</span>
