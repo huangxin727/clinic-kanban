@@ -79,6 +79,50 @@ const Icon = ({ type, size = 16 }) => {
   return icons[type] || null
 }
 
+// 表头筛选组件 — 点击弹出下拉选择，选中后高亮显示，可点击 ✕ 清除
+const ThFilter = ({ label, active, value, onChange, options, allLabel }) => {
+  const [open, setOpen] = useState(false)
+  const ref = React.useRef(null)
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+  const selected = options.find(o => o.value === value)
+  return (
+    <th ref={ref} style={{ position: 'relative', userSelect: 'none' }}>
+      <span
+        onClick={() => setOpen(!open)}
+        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent', transition: 'border-color .15s' }}
+      >
+        {selected ? selected.label : label}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: active ? 1 : 0.4, flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+      {active && (
+        <span
+          onClick={e => { e.stopPropagation(); onChange('') }}
+          style={{ marginLeft: 3, fontSize: 12, color: '#3b82f6', cursor: 'pointer', fontWeight: 700 }}
+        >✕</span>
+      )}
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 120, background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', padding: 4, maxHeight: 240, overflowY: 'auto' }}>
+          <div
+            onClick={() => { onChange(''); setOpen(false) }}
+            style={{ padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: value ? '#6b7280' : '#3b82f6', background: !value ? '#eff6ff' : 'transparent', fontWeight: !value ? 600 : 400 }}
+          >{allLabel}</div>
+          {options.map(o => (
+            <div
+              key={o.value}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              style={{ padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: value === o.value ? '#3b82f6' : '#374151', background: value === o.value ? '#eff6ff' : 'transparent', fontWeight: value === o.value ? 600 : 400 }}
+            >{o.label}</div>
+          ))}
+        </div>
+      )}
+    </th>
+  )
+}
+
 // 时间段工作表组件
 function TimelineModal({ members, tickets, typeMap, statusMap, onClose }) {
   const today = getToday()
@@ -670,6 +714,10 @@ export default function Kanban() {
       const json = await api('/auth/profile')
       if (json.data) {
         setProfile(json.data)
+        // 组员默认只看自己的工单，管理员看全部
+        if (!json.data.is_admin && json.data.id) {
+          setSelectedMember(json.data.id)
+        }
       } else {
         // 首次登录，需要创建 profile
       }
@@ -755,9 +803,8 @@ export default function Kanban() {
     }
   }, [refreshAll])
 
-  // 过滤工单
+  // 过滤工单（selectedMember 不在此过滤，在 UI 层按已接单/待接单分别处理）
   const filteredTickets = tickets.filter(t => {
-    if (selectedMember && t.member_id !== selectedMember) return false
     if (filterType && t.type !== filterType) return false
     if (filterStatus && t.status !== filterStatus) return false
     if (filterTimeField && filterTimeStart) {
@@ -1547,15 +1594,15 @@ export default function Kanban() {
 
                 {/* 已接单区域 */}
                 {(() => {
-                  const assigned = filteredTickets.filter(t => !!t.member_id)
+                  const assigned = filteredTickets.filter(t => !!t.member_id && (!selectedMember || t.member_id === selectedMember))
                   return (
                     <table className="assigned-table">
                       <thead>
                         <tr>
                           <th>客户</th>
-                          <th>类型</th>
-                          <th>负责人</th>
-                          <th>状态</th>
+                          <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
+                          <ThFilter label="负责人" active={!!selectedMember} value={selectedMember} onChange={v => setSelectedMember(v)} options={members.map(m => ({ value: m.id, label: m.name }))} allLabel="全部组员" />
+                          <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
                           <th>时间</th>
                           <th>处理时间</th>
                           <th>备注</th>
