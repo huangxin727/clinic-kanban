@@ -629,9 +629,16 @@ export default function Kanban() {
       // 保护：如果本地已有工单但刷新返回空列表且统计显示有工单，说明数据不完整，跳过本次更新
       const shouldSkip = newTickets.length === 0 && newStats.total > 0 && tickets.length > 0
       if (!shouldSkip) {
-        // 过滤掉正在删除中的工单，防止闪现
+        // 过滤掉正在删除中的工单，保留正在创建中的工单
         const delSet = deletingIdsRef.current
-        setTickets(delSet.size > 0 ? newTickets.filter(t => !delSet.has(t.id)) : newTickets)
+        const crtSet = creatingIdsRef.current
+        let updated = newTickets
+        if (delSet.size > 0) updated = updated.filter(t => !delSet.has(t.id))
+        if (crtSet.size > 0) {
+          const creatingTickets = tickets.filter(t => crtSet.has(t.id))
+          if (creatingTickets.length > 0) updated = [...creatingTickets, ...updated]
+        }
+        setTickets(updated)
       }
       setMembers(d.members || [])
       setStats(newStats)
@@ -658,10 +665,18 @@ export default function Kanban() {
         if (alive && res.success && res.changed) {
           lastTs = res.ts
           // 直接用 poll 返回的 tickets/members 更新，跳过 refreshAll
-          // 过滤掉正在删除中的工单，防止闪现
+          // 过滤掉正在删除中的工单，保留正在创建中的工单
           if (res.tickets) {
             const delSet = deletingIdsRef.current
-            setTickets(res.tickets.filter(t => !delSet.has(t.id)))
+            const crtSet = creatingIdsRef.current
+            let updated = res.tickets
+            if (delSet.size > 0) updated = updated.filter(t => !delSet.has(t.id))
+            if (crtSet.size > 0) {
+              // 保留正在创建中的乐观工单
+              const creatingTickets = tickets.filter(t => crtSet.has(t.id))
+              if (creatingTickets.length > 0) updated = [...creatingTickets, ...updated]
+            }
+            setTickets(updated)
           }
           if (res.members) setMembers(res.members)
         } else if (alive && res.success && res.ts) {
@@ -772,14 +787,18 @@ export default function Kanban() {
         updated_at: now,
         member: currentMember ? { id: currentMember.id, name: currentMember.name, role: currentMember.role, color: currentMember.color } : null,
       }
+      creatingIdsRef.current.add(tempId)
       setTickets(prev => [newTicket, ...prev])
 
-      // 后台异步提交，不主动 refreshAll（由 3 秒轮询自然同步）
-      // 避免乐观插入的工单因 refreshAll 覆盖而短暂消失
+      // 后台异步提交，不主动 refreshAll（由轮询自然同步）
       api('/tickets', {
         method: 'POST',
         body: JSON.stringify(payload)
+      }).then(() => {
+        // POST 成功后清除 tempId，后续 poll 返回的真实 ID 工单自然接管
+        creatingIdsRef.current.delete(tempId)
       }).catch(err => {
+        creatingIdsRef.current.delete(tempId)
         alert('保存失败: ' + err.message)
         refreshAll()
       })
@@ -792,7 +811,8 @@ export default function Kanban() {
 
   // ===== 接单（先发请求确认，避免多人同时接同一工单） =====
   const [acceptingId, setAcceptingId] = useState(null) // 正在接单的工单ID，防止重复点击
-  const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合，防止 poll 拉回已删除工单
+  const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合，防止 poll 拉回
+  const creatingIdsRef = useRef(new Set()) // 正在新建中的工单ID集合，防止 poll 覆盖已删除工单
   const acceptTicket = async (t) => {
     if (!profile) return alert('请先登录')
     if (acceptingId) return // 防止重复点击
