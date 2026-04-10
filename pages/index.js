@@ -416,12 +416,56 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [])
 
+  // 预加载音频 + 解锁播放（浏览器要求用户交互后才能播放音频）
+  const notifyAudioRef = React.useRef(null)
+  useEffect(() => {
+    const audio = new Audio('/notify.wav')
+    audio.load()
+    notifyAudioRef.current = audio
+    // 监听用户任意交互来解锁音频播放
+    const unlock = () => {
+      if (audio.paused) {
+        audio.play().then(() => { audio.pause(); audio.currentTime = 0 }).catch(() => {})
+      }
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('keydown', unlock)
+    }
+    document.addEventListener('click', unlock)
+    document.addEventListener('keydown', unlock)
+    return () => {
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
   // 请求浏览器通知权限
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission()
+      Notification.requestPermission().then(p => {
+        // 授权后如果有待提醒的工单，立即发一次通知
+        if (p === 'granted') {
+          const now = Date.now()
+          tickets.forEach(t => {
+            if (!t.deadline || t.member_id || t.status === 'done') return
+            const dl = new Date(t.deadline).getTime()
+            const diffMin = (dl - now) / 60000
+            if (diffMin <= 20) {
+              const min = Math.abs(Math.round(diffMin))
+              const msg = diffMin <= 0
+                ? `【${t.client}】预约时间已过期 ${min} 分钟，尚未有人接单！`
+                : `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`
+              new Notification('⏰ 工单待接单提醒', {
+                body: msg,
+                icon: '/favicon.ico',
+                tag: t.id + '_init',
+                requireInteraction: true,
+              })
+            }
+          })
+        }
+      })
     }
-  }, [])
+  }, [tickets])
 
   // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
   const remindedRef = React.useRef(new Map())
@@ -447,7 +491,7 @@ export default function Kanban() {
             remindedRef.current.set(t.id, count + 1)
             newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
             // 播放提示音
-            try { new Audio('/notify.wav').play().catch(() => {}) } catch {}
+            try { if (notifyAudioRef.current) { notifyAudioRef.current.currentTime = 0; notifyAudioRef.current.play().catch(() => {}) } } catch {}
             // 桌面通知（页面最小化时也能在桌面弹出）
             const notify = () => {
               const n = new Notification('⏰ 工单待接单提醒', {
