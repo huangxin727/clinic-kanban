@@ -629,7 +629,9 @@ export default function Kanban() {
       // 保护：如果本地已有工单但刷新返回空列表且统计显示有工单，说明数据不完整，跳过本次更新
       const shouldSkip = newTickets.length === 0 && newStats.total > 0 && tickets.length > 0
       if (!shouldSkip) {
-        setTickets(newTickets)
+        // 过滤掉正在删除中的工单，防止闪现
+        const delSet = deletingIdsRef.current
+        setTickets(delSet.size > 0 ? newTickets.filter(t => !delSet.has(t.id)) : newTickets)
       }
       setMembers(d.members || [])
       setStats(newStats)
@@ -656,7 +658,11 @@ export default function Kanban() {
         if (alive && res.success && res.changed) {
           lastTs = res.ts
           // 直接用 poll 返回的 tickets/members 更新，跳过 refreshAll
-          if (res.tickets) setTickets(res.tickets)
+          // 过滤掉正在删除中的工单，防止闪现
+          if (res.tickets) {
+            const delSet = deletingIdsRef.current
+            setTickets(res.tickets.filter(t => !delSet.has(t.id)))
+          }
           if (res.members) setMembers(res.members)
         } else if (alive && res.success && res.ts) {
           lastTs = res.ts
@@ -786,6 +792,7 @@ export default function Kanban() {
 
   // ===== 接单（先发请求确认，避免多人同时接同一工单） =====
   const [acceptingId, setAcceptingId] = useState(null) // 正在接单的工单ID，防止重复点击
+  const deletingIdsRef = useRef(new Set()) // 正在删除中的工单ID集合，防止 poll 拉回已删除工单
   const acceptTicket = async (t) => {
     if (!profile) return alert('请先登录')
     if (acceptingId) return // 防止重复点击
@@ -861,6 +868,8 @@ export default function Kanban() {
     // 清除该工单的提醒
     remindedRef.current.delete(id)
     setRemindAlerts(prev => prev.filter(a => a.id !== id))
+    // 标记为删除中，防止 poll 拉回
+    deletingIdsRef.current.add(id)
     // 纯乐观更新：立即从本地移除
     setTickets(prev => prev.filter(t => t.id !== id))
     // 后台异步删除，失败回滚
@@ -869,6 +878,8 @@ export default function Kanban() {
     } catch (err) {
       alert('删除失败: ' + err.message)
       refreshAll()
+    } finally {
+      deletingIdsRef.current.delete(id)
     }
   }
 
