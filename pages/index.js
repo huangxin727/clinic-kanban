@@ -1700,6 +1700,7 @@ export default function Kanban() {
                           <th>状态</th>
                           <th>预约时间</th>
                           <th>接单时间</th>
+                          <th>开始时间</th>
                           <th>处理时间</th>
                           <th>完成时间</th>
                           <th>备注</th>
@@ -1727,7 +1728,11 @@ export default function Kanban() {
                           const acceptCell = t.accepted_at
                             ? <span style={{ color: '#16a34a' }}>{fmtDT(t.accepted_at)}</span>
                             : <span style={{ color: '#9ca3af' }}>-</span>
-                          // 处理时间列：显示 started_at + 已用时
+                          // 开始时间列
+                          const startCell = t.started_at
+                            ? <span style={{ color: '#2563eb' }}>{fmtDT(t.started_at)}</span>
+                            : <span style={{ color: '#9ca3af' }}>-</span>
+                          // 处理时间列：显示 started_at → completed_at 的纯时长
                           const calcProcessTime = () => {
                             if (!t.started_at) return null
                             const start = new Date(t.started_at).getTime()
@@ -1766,6 +1771,7 @@ export default function Kanban() {
                               <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
                               <td style={{ fontSize: 13 }}>{deadlineCell}</td>
                               <td style={{ fontSize: 13 }}>{acceptCell}</td>
+                              <td style={{ fontSize: 13 }}>{startCell}</td>
                               <td style={{ fontSize: 13 }}>{processCell}</td>
                               <td style={{ fontSize: 13 }}>{completeCell}</td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
@@ -1784,7 +1790,7 @@ export default function Kanban() {
                                   {t.status === 'urgent' && (
                                     <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
                                   )}
-                                  {t.status !== 'done' && (
+                                  {t.status === 'inprogress' && (
                                     <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
                                   )}
                                   <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
