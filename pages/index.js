@@ -732,6 +732,7 @@ export default function Kanban() {
 
   const saveTicket = () => {
     if (!form.client?.trim()) return alert('请填写客户名称')
+    if (savingTicket) return
 
     const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
     // 新建时若无负责人则状态为 pending（待接单），否则按表单状态
@@ -742,7 +743,8 @@ export default function Kanban() {
     const payload = { ...form, services, ticket_date: getToday(), status }
     const now = new Date().toISOString()
 
-    // 立即关闭弹窗
+    // 立即关闭弹窗 + 显示 loading
+    setSavingTicket(true)
     setShowTicketModal(false)
 
     if (editMode) {
@@ -764,6 +766,7 @@ export default function Kanban() {
       }).catch(err => {
         alert('保存失败: ' + err.message)
         skipPollUntilRef.current = 0
+        setSavingTicket(false)
         refreshAll()
       })
     } else {
@@ -799,6 +802,7 @@ export default function Kanban() {
           // 清除 tempId 标记
           creatingIdsRef.current.delete(tempId)
           creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
+          setSavingTicket(false)
           // 如果抽屉打开着这个工单，同步更新
           setDrawerTicket(prev => prev && prev.id === tempId
             ? { ...prev, id: realId, ...res.data, member: res.data.member || prev.member }
@@ -810,6 +814,7 @@ export default function Kanban() {
         creatingTicketsRef.current = creatingTicketsRef.current.filter(t => t.id !== tempId)
         alert('保存失败: ' + err.message)
         skipPollUntilRef.current = 0
+        setSavingTicket(false)
         refreshAll()
       })
     }
@@ -825,6 +830,17 @@ export default function Kanban() {
   const creatingIdsRef = useRef(new Set()) // 正在新建中的工单ID集合
   const creatingTicketsRef = useRef([]) // 乐观创建的工单对象（tempId → ticket）
   const skipPollUntilRef = useRef(0) // poll 屏蔽截止时间戳，乐观更新后短暂屏蔽 poll 覆盖
+  // 通用操作锁：防止按钮重复点击，格式 "action:id" 或 "action"
+  const actionLocksRef = useRef(new Set())
+  const [actionLoading, setActionLoading] = useState('') // 当前正在执行的操作 key（用于 UI disabled）
+  const lockAction = useCallback((key) => {
+    actionLocksRef.current.add(key)
+    setActionLoading(key)
+  }, [])
+  const unlockAction = useCallback((key) => {
+    actionLocksRef.current.delete(key)
+    setActionLoading(prev => prev === key ? '' : prev)
+  }, [])
 
   // 解析工单的真实 ID（乐观创建的工单使用 tempId，需替换为 _realId）
   const resolveTicketId = useCallback((t) => {
@@ -942,11 +958,14 @@ export default function Kanban() {
       alert('只有负责人或管理员才能开始处理此工单')
       return
     }
+    const lockKey = `start:${t.id}`
+    if (actionLocksRef.current.has(lockKey)) return
     const now = new Date().toISOString()
     const updates = { status: 'inprogress', started_at: now }
     // 如果是乐观创建的工单，用真实 ID 替换 tempId
     const ticketId = resolveTicketId(t)
     // 乐观更新：立即更新本地状态
+    lockAction(lockKey)
     skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(tk => tk.id === ticketId ? { ...tk, ...updates } : tk))
     showToast(`🚀 开始处理：${t.client}`)
@@ -954,7 +973,10 @@ export default function Kanban() {
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
+    }).then(() => {
+      unlockAction(lockKey)
     }).catch(err => {
+      unlockAction(lockKey)
       alert('操作失败: ' + err.message)
       skipPollUntilRef.current = 0
       refreshAll()
@@ -963,6 +985,9 @@ export default function Kanban() {
 
   const deleteTicket = async (id) => {
     if (!confirm('确认删除此工单？')) return
+    const lockKey = `del:${id}`
+    if (actionLocksRef.current.has(lockKey)) return
+    lockAction(lockKey)
     // 查找工单对象，检测是否为乐观创建的工单（有 _realId）
     const ticket = tickets.find(t => t.id === id)
     const realId = ticket?._realId || id
@@ -991,6 +1016,7 @@ export default function Kanban() {
     } catch (err) {
       deletingIdsRef.current.delete(id)
       deletingIdsRef.current.delete(realId)
+      unlockAction(lockKey)
       alert('删除失败: ' + err.message)
       refreshAll()
       return
@@ -999,6 +1025,7 @@ export default function Kanban() {
     setTimeout(() => {
       deletingIdsRef.current.delete(id)
       deletingIdsRef.current.delete(realId)
+      unlockAction(lockKey)
     }, 3000)
   }
 
@@ -1019,6 +1046,7 @@ export default function Kanban() {
     const now = new Date().toISOString()
 
     // 立即关闭弹窗 + 乐观更新本地状态
+    setCompletingTicket(true)
     setShowCompleteModal(false)
     skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(t => {
@@ -1038,7 +1066,10 @@ export default function Kanban() {
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'done', clinic_code: clinicCodeInput.trim() })
+    }).then(() => {
+      setCompletingTicket(false)
     }).catch(err => {
+      setCompletingTicket(false)
       alert('完成操作失败: ' + err.message)
       skipPollUntilRef.current = 0
       // 回滚本地状态
@@ -1063,6 +1094,8 @@ export default function Kanban() {
   const confirmMarkUrgent = () => {
     const { ticketId } = urgentInfo
     if (!ticketId) return
+    if (actionLocksRef.current.has(`urgent:${ticketId}`)) return
+    lockAction(`urgent:${ticketId}`)
     const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
     // 乐观更新本地状态
     skipPollUntilRef.current = Date.now() + 2000
@@ -1075,14 +1108,17 @@ export default function Kanban() {
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
+    }).then(() => {
+      unlockAction(`urgent:${ticketId}`)
     }).catch(err => {
       alert('操作失败: ' + err.message)
       skipPollUntilRef.current = 0
+      unlockAction(`urgent:${ticketId}`)
       refreshAll()
     })
   }
 
-  // 取消需跟进（弹窗确认后切回进行中）
+  // 取消需跟进
   const openCancelUrgentModal = (ticketId) => {
     setCancelUrgentId(ticketId)
     setShowCancelUrgentModal(true)
@@ -1090,6 +1126,8 @@ export default function Kanban() {
 
   const confirmCancelUrgent = () => {
     if (!cancelUrgentId) return
+    if (actionLocksRef.current.has(`cancelUrgent:${cancelUrgentId}`)) return
+    lockAction(`cancelUrgent:${cancelUrgentId}`)
     const needReopenDrawer = drawerTicket && drawerTicket.id === cancelUrgentId
     skipPollUntilRef.current = Date.now() + 2000
     setTickets(prev => prev.map(t => t.id === cancelUrgentId ? { ...t, status: 'inprogress' } : t))
@@ -1101,9 +1139,12 @@ export default function Kanban() {
     api(`/tickets/${cancelUrgentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'inprogress' })
+    }).then(() => {
+      unlockAction(`cancelUrgent:${cancelUrgentId}`)
     }).catch(err => {
       alert('操作失败: ' + err.message)
       skipPollUntilRef.current = 0
+      unlockAction(`cancelUrgent:${cancelUrgentId}`)
       refreshAll()
     })
   }
@@ -1130,6 +1171,9 @@ export default function Kanban() {
 
   const addLog = async () => {
     if (!logInput.trim() || !drawerTicket) return
+    const lockKey = 'addLog'
+    if (actionLocksRef.current.has(lockKey)) return
+    lockAction(lockKey)
     try {
       const newContent = logInput.trim()
       // 1. 写入工作记录日志
@@ -1151,7 +1195,9 @@ export default function Kanban() {
       // 4. 再次刷新，确保列表和抽屉数据一致
       await refreshAll()
       openDrawer(drawerTicket.id)
+      unlockAction(lockKey)
     } catch (err) {
+      unlockAction(lockKey)
       alert(err.message)
     }
   }
@@ -1161,6 +1207,8 @@ export default function Kanban() {
     if (!memberForm.name?.trim()) return alert('请填写姓名')
     if (!memberForm.email?.trim()) return alert('请填写登录邮箱')
     if (!memberForm.password || memberForm.password.length < 6) return alert('密码至少6位')
+    if (actionLocksRef.current.has('saveMember')) return
+    lockAction('saveMember')
     try {
       await api('/members', {
         method: 'POST',
@@ -1169,13 +1217,17 @@ export default function Kanban() {
       setShowMemberModal(false)
       setMemberForm({ name: '', role: '全能', status: 'free', email: '', password: '' })
       refreshAll()
+      unlockAction('saveMember')
     } catch (err) {
+      unlockAction('saveMember')
       alert(err.message)
     }
   }
 
   const toggleMemberStatus = async (m) => {
     // 空闲 → 忙碌 → 离线 → 空闲
+    if (actionLocksRef.current.has(`toggle:${m.id}`)) return
+    lockAction(`toggle:${m.id}`)
     const order = ['free', 'busy', 'offline']
     const idx = order.indexOf(m.status || 'free')
     const next = order[(idx + 1) % order.length]
@@ -1185,30 +1237,43 @@ export default function Kanban() {
         body: JSON.stringify({ status: next })
       })
       refreshAll()
+      unlockAction(`toggle:${m.id}`)
     } catch (err) {
+      unlockAction(`toggle:${m.id}`)
       alert(err.message)
     }
   }
 
   const removeMember = async (m) => {
     if (!confirm(`确认移除组员「${m.name}」？`)) return
+    if (actionLocksRef.current.has(`removeMember:${m.id}`)) return
+    lockAction(`removeMember:${m.id}`)
     try {
       await api(`/members/${m.id}`, { method: 'DELETE' })
       refreshAll()
+      unlockAction(`removeMember:${m.id}`)
     } catch (err) {
+      unlockAction(`removeMember:${m.id}`)
       alert(err.message)
     }
   }
 
   // ===== 导出 =====
   const exportCSV = async () => {
-    const res = await api(`/export?date=${getToday()}`)
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `工单日报_${getToday()}.csv`
-    a.click()
+    if (actionLocksRef.current.has('exportCSV')) return
+    lockAction('exportCSV')
+    try {
+      const res = await api(`/export?date=${getToday()}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `工单日报_${getToday()}.csv`
+      a.click()
+    } catch (err) {
+      alert('导出失败: ' + err.message)
+    }
+    unlockAction('exportCSV')
   }
 
   // ===== 登出 =====
@@ -1289,7 +1354,7 @@ export default function Kanban() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {profile.name} {isAdmin && <span className="admin-badge" style={{ background: 'rgba(255,255,255,.2)', color: '#fbbf24', fontWeight: 600 }}>组长</span>}
           </span>
-          <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }} onClick={exportCSV}>📥 导出日报</button>
+          <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }} onClick={exportCSV} disabled={actionLoading === 'exportCSV'}>{actionLoading === 'exportCSV' ? '⏳ 导出中...' : '📥 导出日报'}</button>
           <button className="btn btn-sm" style={{ background: refreshing ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.15)', color: '#fff' }} onClick={() => refreshAll(true)} disabled={refreshing}>
             {refreshing ? '⏳' : '🔄'} 刷新
           </button>
@@ -1742,7 +1807,7 @@ export default function Kanban() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowMemberModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={saveMember}>添加</button>
+              <button className="btn btn-primary" onClick={saveMember} disabled={actionLoading === 'saveMember'}>{actionLoading === 'saveMember' ? '添加中...' : '添加'}</button>
             </div>
           </div>
         </div>
@@ -1754,6 +1819,8 @@ export default function Kanban() {
           settings={settings}
           onClose={() => setShowSettingsModal(false)}
           onSave={async (newSettings) => {
+            if (actionLocksRef.current.has('saveSettings')) return
+            lockAction('saveSettings')
             try {
               await api('/settings', {
                 method: 'PUT',
@@ -1762,7 +1829,9 @@ export default function Kanban() {
               setSettings(prev => ({ ...prev, ...newSettings }))
               setShowSettingsModal(false)
               refreshAll()
+              unlockAction('saveSettings')
             } catch (err) {
+              unlockAction('saveSettings')
               alert('保存失败: ' + err.message)
             }
           }}
@@ -1794,7 +1863,7 @@ export default function Kanban() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowCompleteModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={confirmCompleteTicket}>确认完成</button>
+              <button className="btn btn-primary" onClick={confirmCompleteTicket} disabled={completingTicket}>{completingTicket ? '完成中...' : '确认完成'}</button>
             </div>
           </div>
         </div>
@@ -1946,7 +2015,7 @@ export default function Kanban() {
               <div style={{ color: '#6b7280', marginBottom: 6 }}>快速追加工作记录</div>
               <textarea rows={2} value={logInput} onChange={e => setLogInput(e.target.value)} placeholder="记录本次处理内容..." />
               <div style={{ textAlign: 'right', marginTop: 8 }}>
-                <button className="btn btn-primary btn-sm" onClick={addLog}>记录</button>
+                <button className="btn btn-primary btn-sm" onClick={addLog} disabled={actionLoading === 'addLog'}>{actionLoading === 'addLog' ? '记录中...' : '记录'}</button>
               </div>
             </div>
 
