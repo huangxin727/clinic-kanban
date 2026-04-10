@@ -443,16 +443,18 @@ export default function Kanban() {
             ? `【${t.client}】预约时间已过期 ${min} 分钟，尚未有人接单！`
             : `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`
           newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
-          // 播放提示音（页面在后台也能听到）
+          // 播放提示音
           try { new Audio('/notify.wav').play().catch(() => {}) } catch {}
-          // 桌面通知
+          // 桌面通知（页面最小化时也能在桌面弹出）
           const notify = () => {
-            new Notification('⏰ 工单待接单提醒', {
+            const n = new Notification('⏰ 工单待接单提醒', {
               body: msg,
               icon: '/favicon.ico',
-              tag: t.id, // 同一工单只弹一次，避免重复
-              requireInteraction: true, // 需要用户手动关闭，不会被自动收起
+              tag: t.id,
+              requireInteraction: true,
             })
+            // 点击通知 → 聚焦窗口并打开看板
+            n.onclick = () => { window.focus(); n.close() }
           }
           if (typeof Notification !== 'undefined') {
             if (Notification.permission === 'granted') {
