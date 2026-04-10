@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
@@ -416,6 +416,41 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [])
 
+  // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
+  const remindedRef = React.useRef(new Set())
+  useEffect(() => {
+    const check = () => {
+      const now = Date.now()
+      tickets.forEach(t => {
+        if (!t.deadline || t.member_id) return // 有负责人=已接单，跳过
+        if (t.status === 'done') return
+        const dl = new Date(t.deadline).getTime()
+        const diffMin = (dl - now) / 60000
+        if (diffMin > 0 && diffMin <= 20 && !remindedRef.current.has(t.id)) {
+          remindedRef.current.add(t.id)
+          const min = Math.round(diffMin)
+          // 桌面通知
+          const notify = () => {
+            new Notification('⏰ 工单待接单提醒', {
+              body: `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`,
+              icon: '/favicon.ico',
+            })
+          }
+          if (typeof Notification !== 'undefined') {
+            if (Notification.permission === 'granted') {
+              notify()
+            } else if (Notification.permission !== 'denied') {
+              Notification.requestPermission().then(p => { if (p === 'granted') notify() })
+            }
+          }
+        }
+      })
+    }
+    check()
+    const timer = setInterval(check, 60000)
+    return () => clearInterval(timer)
+  }, [tickets])
+
   // 加载 profile
   const loadProfile = async (user) => {
     try {
@@ -497,7 +532,12 @@ export default function Kanban() {
     if (!form.client?.trim()) return alert('请填写客户名称')
 
     const autoDone = shouldAutoDone(form.type, services, TYPE_SERVICE_MAP)
-    const payload = { ...form, services, ticket_date: getToday(), status: autoDone ? 'done' : (form.status || 'inprogress') }
+    // 新建时若无负责人则状态为 pending（待接单），否则按表单状态
+    const hasAssignee = !!(form.member_id)
+    const status = editMode
+      ? (autoDone ? 'done' : (form.status || 'inprogress'))
+      : (hasAssignee ? (autoDone ? 'done' : (form.status || 'inprogress')) : 'pending')
+    const payload = { ...form, services, ticket_date: getToday(), status }
     const now = new Date().toISOString()
 
     // 立即关闭弹窗
@@ -548,6 +588,25 @@ export default function Kanban() {
     setForm({})
     setEditMode(false)
     setServices([])
+  }
+
+  // ===== 接单 =====
+  const acceptTicket = (t) => {
+    if (!profile) return alert('请先登录')
+    const member = members.find(m => m.id === profile.id)
+    if (!member) return alert('未找到您的组员信息')
+    // 乐观更新
+    setTickets(prev => prev.map(tk => tk.id === t.id
+      ? { ...tk, member_id: member.id, member: { id: member.id, name: member.name, role: member.role, color: member.color }, status: 'inprogress', accepted_at: new Date().toISOString() }
+      : tk
+    ))
+    api(`/tickets/${t.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ member_id: member.id, status: 'inprogress', accepted_at: new Date().toISOString() })
+    }).then(() => refreshAll()).catch(err => {
+      alert('接单失败: ' + err.message)
+      refreshAll()
+    })
   }
 
   const deleteTicket = (id) => {
@@ -1013,99 +1072,158 @@ export default function Kanban() {
                 <span className="badge">{filteredTickets.length}</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>工单号</th>
-                      <th>客户名称</th>
-                      <th>类型</th>
-                      <th>负责人</th>
-                      <th>状态</th>
-                      <th>诊所编码</th>
-                      <th>新建时间</th>
-                      <th>完成时间</th>
-                      <th>预约时间</th>
-                      <th>备注</th>
-                      <th>消耗时间</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTickets.map(t => {
-                      const m = t.member || {}
-                      const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
-                      const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
-                      const fmtDT = (iso) => { if (!iso) return '-' ; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
-                      const time = fmtDT(t.created_at)
-                      const doneTime = fmtDT(t.completed_at)
-                      const deadlineStr = t.deadline ? (() => { const d = new Date(t.deadline); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` })() : '-'
-                      // 计算消耗时间
-                      const calcDuration = () => {
-                        if (!t.created_at) return '-'
-                        const start = new Date(t.created_at).getTime()
-                        const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
-                        const diffMs = end - start
-                        if (diffMs < 0) return '-'
-                        const minutes = Math.floor(diffMs / 60000)
-                        const hours = Math.floor(minutes / 60)
-                        const mins = minutes % 60
-                        if (hours >= 24) {
-                          const days = Math.floor(hours / 24)
-                          const remainHours = hours % 24
-                          return `${days}天${remainHours}时${mins}分`
-                        }
-                        if (hours > 0) return `${hours}时${mins}分`
-                        return `${mins}分`
-                      }
-                      const duration = calcDuration()
-                      return (
-                        <tr key={t.id}>
-                          <td>{t.ticket_no || '-'}</td>
-                          <td title={t.client}>{t.client}</td>
-                          <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <div style={{ width: 22, height: 22, borderRadius: '50%', background: m.color || '#6b7280', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{m.name ? m.name[0] : '?'}</div>
-                              <span>{m.name || '未分配'}</span>
-                            </div>
-                          </td>
-                          <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                          <td>{t.clinic_code || '-'}</td>
-                          <td>{time}</td>
-                          <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{doneTime}</td>
-                          <td>{deadlineStr}</td>
-                          <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
-                          <td>
-                            {t.status === 'done' && t.completed_at ? (
-                              <span style={{ fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>{duration}</span>
-                            ) : '-'}
-                          </td>
-                          <td>
-                            <div className="action-group">
-                              {t.status !== 'done' && t.status !== 'urgent' && (
-                                <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
-                              )}
-                              {t.status === 'urgent' && (
-                                <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
-                              )}
-                              {t.status !== 'done' && (
-                                <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
-                              )}
-                              <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
-                              {(isAdmin || t.member_id === profile.id) && (
-                                <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>
-                              )}
-                              {isAdmin && (
-                                <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {!filteredTickets.length && <div className="empty">暂无工单</div>}
+                {/* 待接单区域 */}
+                {(() => {
+                  const unassigned = filteredTickets.filter(t => !t.member_id)
+                  if (!unassigned.length) return null
+                  return (
+                    <>
+                      <div style={{ padding: '8px 16px', background: '#fffbeb', borderBottom: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#b45309' }}>
+                        <span>🕐 待接单</span>
+                        <span style={{ background: '#fde68a', color: '#b45309', borderRadius: 10, padding: '1px 8px', fontSize: 12 }}>{unassigned.length}</span>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>工单号</th>
+                            <th>客户名称</th>
+                            <th>类型</th>
+                            <th>状态</th>
+                            <th>新建时间</th>
+                            <th>预约时间</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {unassigned.map(t => {
+                            const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
+                            const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
+                            const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
+                            // 预约时间紧迫提示
+                            const dlTs = t.deadline ? new Date(t.deadline).getTime() : null
+                            const diffMin = dlTs ? (dlTs - Date.now()) / 60000 : null
+                            const isUrgentDl = diffMin !== null && diffMin > 0 && diffMin <= 20
+                            return (
+                              <tr key={t.id} style={{ background: isUrgentDl ? '#fffbeb' : undefined }}>
+                                <td>{t.ticket_no || '-'}</td>
+                                <td title={t.client}>{t.client}</td>
+                                <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
+                                <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
+                                <td>{fmtDT(t.created_at)}</td>
+                                <td style={{ color: isUrgentDl ? '#b45309' : undefined, fontWeight: isUrgentDl ? 700 : undefined }}>
+                                  {fmtDT(t.deadline)}{isUrgentDl ? ` ⚠️${Math.round(diffMin)}分钟` : ''}
+                                </td>
+                                <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.note || ''}>{t.note || '-'}</td>
+                                <td>
+                                  <div className="action-group">
+                                    <button className="btn btn-primary btn-sm" onClick={() => acceptTicket(t)}>接单</button>
+                                    <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
+                                    {isAdmin && <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>}
+                                    {isAdmin && <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </>
+                  )
+                })()}
+
+                {/* 已接单区域 */}
+                {(() => {
+                  const assigned = filteredTickets.filter(t => !!t.member_id)
+                  return (
+                    <>
+                      <div style={{ padding: '8px 16px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTop: filteredTickets.filter(t => !t.member_id).length ? '2px solid #e5e7eb' : undefined, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#15803d' }}>
+                        <span>✅ 已接单</span>
+                        <span style={{ background: '#bbf7d0', color: '#15803d', borderRadius: 10, padding: '1px 8px', fontSize: 12 }}>{assigned.length}</span>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>工单号</th>
+                            <th>客户名称</th>
+                            <th>类型</th>
+                            <th>负责人</th>
+                            <th>状态</th>
+                            <th>诊所编码</th>
+                            <th>新建时间</th>
+                            <th>完成时间</th>
+                            <th>预约时间</th>
+                            <th>备注</th>
+                            <th>消耗时间</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assigned.map(t => {
+                            const m = t.member || {}
+                            const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
+                            const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
+                            const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
+                            const calcDuration = () => {
+                              if (!t.created_at) return '-'
+                              const start = new Date(t.created_at).getTime()
+                              const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
+                              const diffMs = end - start
+                              if (diffMs < 0) return '-'
+                              const minutes = Math.floor(diffMs / 60000)
+                              const hours = Math.floor(minutes / 60)
+                              const mins = minutes % 60
+                              if (hours >= 24) { const days = Math.floor(hours / 24); return `${days}天${hours%24}时${mins}分` }
+                              if (hours > 0) return `${hours}时${mins}分`
+                              return `${mins}分`
+                            }
+                            return (
+                              <tr key={t.id}>
+                                <td>{t.ticket_no || '-'}</td>
+                                <td title={t.client}>{t.client}</td>
+                                <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: m.color || '#6b7280', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{m.name ? m.name[0] : '?'}</div>
+                                    <span>{m.name || '未分配'}</span>
+                                  </div>
+                                </td>
+                                <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
+                                <td>{t.clinic_code || '-'}</td>
+                                <td>{fmtDT(t.created_at)}</td>
+                                <td style={{ color: t.completed_at ? '#16a34a' : undefined }}>{fmtDT(t.completed_at)}</td>
+                                <td>{fmtDT(t.deadline)}</td>
+                                <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
+                                <td>{t.status === 'done' && t.completed_at ? <span style={{ fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>{calcDuration()}</span> : '-'}</td>
+                                <td>
+                                  <div className="action-group">
+                                    {t.status !== 'done' && t.status !== 'urgent' && (
+                                      <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
+                                    )}
+                                    {t.status === 'urgent' && (
+                                      <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
+                                    )}
+                                    {t.status !== 'done' && (
+                                      <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
+                                    )}
+                                    <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
+                                    {(isAdmin || t.member_id === profile.id) && (
+                                      <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>
+                                    )}
+                                    {isAdmin && (
+                                      <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                      {!assigned.length && !filteredTickets.filter(t => !t.member_id).length && <div className="empty">暂无工单</div>}
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </div>
@@ -1139,9 +1257,9 @@ export default function Kanban() {
                   </select>
                 </div>
                 <div className="form-row">
-                  <label>负责人 *</label>
+                  <label>负责人 <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12 }}>(可不填，由组员接单)</span></label>
                   <select value={form.member_id || ''} onChange={e => setForm({ ...form, member_id: e.target.value })}>
-                    <option value="">请选择</option>
+                    <option value="">待接单</option>
                     {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </div>
