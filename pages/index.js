@@ -523,24 +523,67 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [tickets])
 
-  // 标题闪烁：页面后台时提醒用户
+  // 标题闪烁 + 图标闪烁：页面后台时提醒用户（任务栏图标也会跟着变）
   const titleBlinkRef = React.useRef(null)
   const originTitle = React.useRef('工单看板')
+  // 预生成红色告警 favicon（data URL）
+  const alertFaviconRef = React.useRef(null)
+  React.useEffect(() => {
+    // 生成一个红色圆点 favicon
+    const canvas = document.createElement('canvas')
+    canvas.width = 32; canvas.height = 32
+    const ctx = canvas.getContext('2d')
+    ctx.beginPath()
+    ctx.arc(16, 16, 14, 0, Math.PI * 2)
+    ctx.fillStyle = '#dc2626'
+    ctx.fill()
+    // 白色感叹号
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 20px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('!', 16, 17)
+    alertFaviconRef.current = canvas.toDataURL('image/png')
+  }, [])
   const startTitleBlink = () => {
-    if (titleBlinkRef.current) return // 已在闪烁
+    if (titleBlinkRef.current) return
     let show = true
     titleBlinkRef.current = setInterval(() => {
-      document.title = show ? '🔔 工单待接单提醒！' : '⏰ 请查看工单看板'
+      if (show) {
+        document.title = '🔔 工单待接单提醒！'
+        if (alertFaviconRef.current) {
+          let link = document.querySelector("link[rel*='icon']")
+          if (!link) {
+            link = document.createElement('link')
+            link.rel = 'icon'
+            document.head.appendChild(link)
+          }
+          link.href = alertFaviconRef.current
+        }
+      } else {
+        document.title = '⏰ 请查看工单看板'
+        if (alertFaviconRef.current) {
+          let link = document.querySelector("link[rel*='icon']")
+          if (!link) {
+            link = document.createElement('link')
+            link.rel = 'icon'
+            document.head.appendChild(link)
+          }
+          link.href = '/favicon.ico'
+        }
+      }
       show = !show
-    }, 1000)
+    }, 800)
   }
-  // 用户聚焦页面时恢复标题
+  // 用户聚焦页面时恢复标题和图标
   useEffect(() => {
     const onFocus = () => {
       if (titleBlinkRef.current) {
         clearInterval(titleBlinkRef.current)
         titleBlinkRef.current = null
         document.title = originTitle.current
+        let link = document.querySelector("link[rel*='icon']")
+        if (link) link.href = '/favicon.ico'
         setRemindAlerts([])
       }
     }
