@@ -1836,7 +1836,17 @@ export default function Kanban() {
               <div className="form-grid">
                 <div className="form-row">
                   <label>预约时间</label>
-                  <input type="datetime-local" value={form.deadline || ''} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="date" value={(form.deadline || '').slice(0, 10)} onChange={e => { const t = (form.deadline || '').slice(11) || ''; setForm({ ...form, deadline: e.target.value ? e.target.value + 'T' + t : '' }) }} style={{ flex: 1 }} />
+                    <input type="time" value={(form.deadline || '').slice(11)} onChange={e => { const d = (form.deadline || '').slice(0, 10); setForm({ ...form, deadline: d && e.target.value ? d + 'T' + e.target.value : '' }) }} style={{ flex: 1 }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    {['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:00','15:30','16:00','16:30','17:00'].map(t => (
+                      <button key={t} type="button" onClick={() => { const d = (form.deadline || '').slice(0, 10) || new Date().toISOString().slice(0, 10); setForm({ ...form, deadline: d + 'T' + t }) }} style={{ padding: '2px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: (form.deadline || '').slice(11) === t ? 'var(--primary)' : '#fff', color: (form.deadline || '').slice(11) === t ? '#fff' : 'var(--text)', cursor: 'pointer', transition: 'all .15s' }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="form-row">
                   <label>状态</label>
