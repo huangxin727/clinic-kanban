@@ -618,6 +618,9 @@ export default function Kanban() {
     if (!profile) return alert('请先登录')
     const member = members.find(m => m.id === profile.id)
     if (!member) return alert('未找到您的组员信息')
+    // 清除该工单的提醒
+    remindedRef.current.delete(t.id)
+    setRemindAlerts(prev => prev.filter(a => a.id !== t.id))
     // 乐观更新
     setTickets(prev => prev.map(tk => tk.id === t.id
       ? { ...tk, member_id: member.id, member: { id: member.id, name: member.name, role: member.role, color: member.color }, status: 'inprogress', accepted_at: new Date().toISOString() }
@@ -648,6 +651,9 @@ export default function Kanban() {
       setShowDrawer(false)
       setDrawerTicket(null)
     }
+    // 清除该工单的提醒
+    remindedRef.current.delete(id)
+    setRemindAlerts(prev => prev.filter(a => a.id !== id))
     // 乐观更新：立即从本地移除
     setTickets(prev => prev.filter(t => t.id !== id))
     // 后台异步删除，失败回滚
