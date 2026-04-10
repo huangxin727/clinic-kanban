@@ -936,11 +936,16 @@ export default function Kanban() {
     try {
       await api(`/tickets/${id}`, { method: 'DELETE' })
     } catch (err) {
+      deletingIdsRef.current.delete(id)
       alert('删除失败: ' + err.message)
       refreshAll()
-    } finally {
-      deletingIdsRef.current.delete(id)
+      return
     }
+    // DELETE 成功后延迟清除 deletingIdsRef，确保 poll 有时间拿到删除后的后端数据
+    // 避免时序窗口内 poll 把已删除工单重新拉回
+    setTimeout(() => {
+      deletingIdsRef.current.delete(id)
+    }, 3000)
   }
 
   // ===== 完成工单 =====
