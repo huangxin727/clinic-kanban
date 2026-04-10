@@ -748,24 +748,15 @@ export default function Kanban() {
     setShowTicketModal(false)
 
     if (editMode) {
-      // 编辑模式：乐观更新本地列表
-      setTickets(prev => prev.map(t => {
-        if (t.id === form.id) {
-          return { ...t, ...payload, updated_at: now }
-        }
-        return t
-      }))
-      // 如果抽屉打开着同一个工单，同步更新
-      setDrawerTicket(prev => prev && prev.id === form.id ? { ...prev, ...payload, updated_at: now } : prev)
-
-      // 后台异步提交，不主动 refreshAll（由 3 秒轮询自然同步）
-      skipPollUntilRef.current = Date.now() + 2000 // 屏蔽 poll 2 秒，等待后端写入完成
+      // 等 API 返回后刷新，不再乐观更新
       api(`/tickets/${form.id}`, {
         method: 'PUT',
         body: JSON.stringify(payload)
+      }).then(() => {
+        setSavingTicket(false)
+        refreshAll()
       }).catch(err => {
         alert('保存失败: ' + err.message)
-        skipPollUntilRef.current = 0
         setSavingTicket(false)
         refreshAll()
       })
@@ -918,13 +909,8 @@ export default function Kanban() {
         method: 'PUT',
         body: JSON.stringify(acceptData)
       })
-      // 后端确认成功，乐观更新本地状态
+      // 后端确认成功后刷新
       if (res.success) {
-        skipPollUntilRef.current = Date.now() + 2000 // 屏蔽 poll 2 秒
-        setTickets(prev => prev.map(tk => tk.id === ticketId
-          ? { ...tk, ...acceptData, member: { id: member.id, name: member.name, role: member.role, color: member.color } }
-          : tk
-        ))
         showToast(`✅ 已接单：${t.client}`)
         // 关闭所有未关闭的提醒弹窗
         setRemindAlerts([])
@@ -935,6 +921,7 @@ export default function Kanban() {
           document.title = originTitle.current
           setFavicon(originFaviconRef.current)
         }
+        refreshAll()
       }
     } catch (err) {
       // 409 = 已被别人接走，提示并刷新列表
@@ -963,22 +950,18 @@ export default function Kanban() {
     const updates = { status: 'inprogress', started_at: now }
     // 如果是乐观创建的工单，用真实 ID 替换 tempId
     const ticketId = resolveTicketId(t)
-    // 乐观更新：立即更新本地状态
     lockAction(lockKey)
-    skipPollUntilRef.current = Date.now() + 2000
-    setTickets(prev => prev.map(tk => tk.id === ticketId ? { ...tk, ...updates } : tk))
     showToast(`🚀 开始处理：${t.client}`)
-    // 后台异步提交，失败回滚
+    // 等 API 返回后由 poll 自然同步状态
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
     }).then(() => {
       unlockAction(lockKey)
+      refreshAll()
     }).catch(err => {
       unlockAction(lockKey)
       alert('操作失败: ' + err.message)
-      skipPollUntilRef.current = 0
-      refreshAll()
     })
   }
 
@@ -1071,25 +1054,17 @@ export default function Kanban() {
     if (!ticketId) return
     if (actionLocksRef.current.has(`urgent:${ticketId}`)) return
     lockAction(`urgent:${ticketId}`)
-    const needReopenDrawer = drawerTicket && drawerTicket.id === ticketId
-    // 乐观更新本地状态
-    skipPollUntilRef.current = Date.now() + 2000
-    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'urgent', note: urgentNote.trim() } : t))
-    if (needReopenDrawer) {
-      setDrawerTicket(prev => prev && prev.id === ticketId ? { ...prev, status: 'urgent', note: urgentNote.trim() } : prev)
-    }
     setShowUrgentModal(false)
-    // 后台异步提交，不主动 refreshAll（由轮询同步）
+    // 等 API 返回后由 poll 自然同步状态
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'urgent', note: urgentNote.trim() })
     }).then(() => {
       unlockAction(`urgent:${ticketId}`)
+      refreshAll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
-      skipPollUntilRef.current = 0
       unlockAction(`urgent:${ticketId}`)
-      refreshAll()
     })
   }
 
@@ -1103,24 +1078,17 @@ export default function Kanban() {
     if (!cancelUrgentId) return
     if (actionLocksRef.current.has(`cancelUrgent:${cancelUrgentId}`)) return
     lockAction(`cancelUrgent:${cancelUrgentId}`)
-    const needReopenDrawer = drawerTicket && drawerTicket.id === cancelUrgentId
-    skipPollUntilRef.current = Date.now() + 2000
-    setTickets(prev => prev.map(t => t.id === cancelUrgentId ? { ...t, status: 'inprogress' } : t))
-    if (needReopenDrawer) {
-      setDrawerTicket(prev => prev && prev.id === cancelUrgentId ? { ...prev, status: 'inprogress' } : prev)
-    }
     setShowCancelUrgentModal(false)
-    // 后台异步提交，不主动 refreshAll（由轮询同步）
+    // 等 API 返回后由 poll 自然同步状态
     api(`/tickets/${cancelUrgentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: 'inprogress' })
     }).then(() => {
       unlockAction(`cancelUrgent:${cancelUrgentId}`)
+      refreshAll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
-      skipPollUntilRef.current = 0
       unlockAction(`cancelUrgent:${cancelUrgentId}`)
-      refreshAll()
     })
   }
 
