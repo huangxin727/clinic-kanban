@@ -1533,17 +1533,25 @@ export default function Kanban() {
                 <span className="badge">{filteredTickets.length}</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
-                {/* 待接单区域 — 卡片布局 */}
+                {/* 待接单区域 — 表格布局 */}
                 {(() => {
                   const unassigned = filteredTickets.filter(t => !t.member_id)
                   if (!unassigned.length) return null
                   return (
-                    <div className="pending-cards-wrap">
-                      <div className="pending-section-bar">
-                        <span>🕐 待接单</span>
-                        <span className="pending-count">{unassigned.length}</span>
-                      </div>
-                      <div className="pending-cards">
+                    <table className="assigned-table" style={{ marginBottom: 12 }}>
+                      <thead>
+                        <tr>
+                          <th>客户</th>
+                          <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
+                          <th>负责人</th>
+                          <th>状态</th>
+                          <th>时间</th>
+                          <th>处理时间</th>
+                          <th>备注</th>
+                          <th>操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {unassigned.map(t => {
                           const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                           const dlTs = t.deadline ? new Date(t.deadline).getTime() : null
@@ -1551,44 +1559,34 @@ export default function Kanban() {
                           const isUrgentDl = diffMin !== null && diffMin > 0 && diffMin <= 20
                           const isOverdue = diffMin !== null && diffMin <= 0
                           const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
+                          const timeText = <><span>{fmtDT(t.created_at)}</span>{t.deadline && <span className={isOverdue ? 'meta-overdue' : isUrgentDl ? 'meta-urgent' : ''} style={{ marginLeft: 6 }}>⏰{fmtDT(t.deadline)}{isOverdue && ` 已过期${Math.abs(Math.round(diffMin))}分`}{isUrgentDl && !isOverdue && ` 剩余${Math.round(diffMin)}分`}</span>}</>
                           return (
-                            <div key={t.id} className={`pending-card ${isOverdue ? 'card-overdue' : isUrgentDl ? 'card-urgent' : ''}`}>
-                              {/* 紧急/过期顶部色条 */}
-                              {isOverdue && <div className="card-stripe card-stripe-red" />}
-                              {isUrgentDl && !isOverdue && <div className="card-stripe card-stripe-yellow" />}
-                              <div className="card-body">
-                                <div className="card-top">
-                                  <span className={`tag ${ti.cls}`}>{ti.label}</span>
-                                  {t.ticket_no && <span className="card-no">{t.ticket_no}</span>}
-                                </div>
-                                <div className="card-client" title={t.client}>{t.client}</div>
-                                <div className="card-meta">
-                                  <span>📅 创建 {fmtDT(t.created_at)}</span>
-                                  {t.deadline && (
-                                    <span className={isOverdue ? 'meta-overdue' : isUrgentDl ? 'meta-urgent' : ''}>
-                                      ⏰ {fmtDT(t.deadline)}
-                                      {isOverdue && ` 已过期${Math.abs(Math.round(diffMin))}分`}
-                                      {isUrgentDl && !isOverdue && ` 剩余${Math.round(diffMin)}分`}
-                                    </span>
-                                  )}
-                                </div>
-                                {t.note && <div className="card-note" title={t.note}>{t.note}</div>}
-                                <div className="card-actions">
-                                  <button className="btn btn-primary btn-accept" disabled={acceptingId === t.id} onClick={() => acceptTicket(t)}>
-                                    <span className="accept-icon">{acceptingId === t.id ? '⏳' : '✋'}</span> {acceptingId === t.id ? '接单中...' : '接单'}
+                            <tr key={t.id} className={isOverdue ? 'card-overdue' : isUrgentDl ? 'card-urgent' : ''}>
+                              <td>
+                                <div style={{ fontWeight: 600 }}>{t.client}</div>
+                                {t.ticket_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.ticket_no}</div>}
+                              </td>
+                              <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
+                              <td style={{ color: '#f59e0b', fontWeight: 500 }}>待接单</td>
+                              <td><span className="tag tag-pending">待处理</span></td>
+                              <td style={{ fontSize: 13 }}>{timeText}</td>
+                              <td style={{ fontSize: 13, color: '#9ca3af' }}>-</td>
+                              <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
+                              <td>
+                                <div className="action-group">
+                                  <button className="btn btn-primary btn-accept" disabled={acceptingId === t.id} onClick={() => acceptTicket(t)} style={{ fontSize: 12, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                                    {acceptingId === t.id ? '⏳ 接单中...' : '✋ 接单'}
                                   </button>
-                                  <div className="card-actions-right">
-                                    <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
-                                    {isAdmin && <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>}
-                                    {isAdmin && <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>}
-                                  </div>
+                                  <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
+                                  {isAdmin && <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>}
+                                  {isAdmin && <button className="btn-icon btn-icon-danger" title="删除" onClick={() => deleteTicket(t.id)}><Icon type="delete"/></button>}
                                 </div>
-                              </div>
-                            </div>
+                              </td>
+                            </tr>
                           )
                         })}
-                      </div>
-                    </div>
+                      </tbody>
+                    </table>
                   )
                 })()}
 
