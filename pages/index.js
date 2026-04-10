@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Head from 'next/head'
 import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
@@ -344,8 +344,28 @@ export default function Kanban() {
   const [profile, setProfile] = useState(null)
   const [members, setMembers] = useState([])
   const [tickets, setTickets] = useState([])
-  const [stats, setStats] = useState({ total: 0, inprogress: 0, done: 0, urgent: 0 })
-  const [memberStats, setMemberStats] = useState([])
+
+  // 从 tickets + members 实时计算 stats 和 memberStats（不再依赖后端 refreshAll）
+  const today = getToday()
+  const dateTickets = useMemo(() => tickets.filter(t => {
+    if (!t.created_at) return false
+    const d = new Date(t.created_at)
+    const local = new Date(d.getTime() - new Date().getTimezoneOffset() * 60000)
+    return local.toISOString().slice(0, 10) === today
+  }), [tickets, today])
+
+  const stats = useMemo(() => ({
+    total: dateTickets.length,
+    inprogress: dateTickets.filter(t => t.status === 'inprogress').length,
+    done: dateTickets.filter(t => t.status === 'done').length,
+    urgent: dateTickets.filter(t => t.status === 'urgent').length,
+  }), [dateTickets])
+
+  const memberStats = useMemo(() => members.map(m => ({
+    ...m,
+    tickets: dateTickets.filter(t => t.member_id === m.id)
+  })), [members, dateTickets])
+
   const [selectedMember, setSelectedMember] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -632,8 +652,6 @@ export default function Kanban() {
         safeSetTickets(newTickets)
       }
       setMembers(d.members || [])
-      setStats(newStats)
-      setMemberStats(d.memberStats || [])
       if (d.settings) setSettings(d.settings)
       return d
     } catch (err) {
