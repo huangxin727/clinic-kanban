@@ -893,13 +893,13 @@ export default function Kanban() {
     // 如果是乐观创建的工单，用真实 ID 替换 tempId
     const ticketId = resolveTicketId(t)
     lockAction(lockKey)
-    showToast(`🚀 开始处理：${t.client}`)
-    // 等 API 返回后由 poll 自然同步状态
+    // 等 API 返回后确认状态已更新再提示
     api(`/tickets/${ticketId}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
     }).then(() => {
       unlockAction(lockKey)
+      showToast(`🚀 开始处理：${t.client}`)
       refreshAll()
     }).catch(err => {
       unlockAction(lockKey)
