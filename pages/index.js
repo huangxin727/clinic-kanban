@@ -662,21 +662,36 @@ export default function Kanban() {
 
   // 轻量轮询变更检测（1秒），有变化直接返回增量数据
   // 兜底 15 秒强制全量刷新（防止极端情况遗漏）
+  const lastTsRef = useRef('0')
+
+  // 静默 poll：操作后立即触发一次 poll 拉取增量，不等 1 秒定时器
+  const silentPoll = useCallback(async () => {
+    try {
+      const res = await api(`/poll?ts=${lastTsRef.current}`)
+      if (res.success && res.changed) {
+        lastTsRef.current = res.ts
+        if (res.tickets) safeSetTickets(res.tickets)
+        if (res.members) setMembers(res.members)
+      } else if (res.success && res.ts) {
+        lastTsRef.current = res.ts
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
-    let lastTs = '0'
     let pollTimer
     let forceTimer
     let alive = true
 
     const poll = async () => {
       try {
-        const res = await api(`/poll?ts=${lastTs}`)
+        const res = await api(`/poll?ts=${lastTsRef.current}`)
         if (alive && res.success && res.changed) {
-          lastTs = res.ts
+          lastTsRef.current = res.ts
           if (res.tickets) safeSetTickets(res.tickets)
           if (res.members) setMembers(res.members)
         } else if (alive && res.success && res.ts) {
-          lastTs = res.ts
+          lastTsRef.current = res.ts
         }
       } catch {}
     }
@@ -687,7 +702,7 @@ export default function Kanban() {
       if (!alive) return
       // 用首次加载后的 ts 初始化 lastTs
       const initRes = await api('/poll')
-      if (initRes?.success && initRes.ts) lastTs = initRes.ts
+      if (initRes?.success && initRes.ts) lastTsRef.current = initRes.ts
       pollTimer = setInterval(poll, 1000)
       forceTimer = setInterval(() => refreshAll(), 15000)
     }
@@ -763,11 +778,11 @@ export default function Kanban() {
       }).then(() => {
         setSavingTicket(false)
         showToast('✅ 工单已更新')
-        refreshAll()
+        silentPoll()
       }).catch(err => {
         alert('保存失败: ' + err.message)
         setSavingTicket(false)
-        refreshAll()
+        silentPoll()
       })
     } else {
       // 新建模式：等 POST 返回后刷新，不做乐观创建
@@ -777,11 +792,11 @@ export default function Kanban() {
       }).then((res) => {
         setSavingTicket(false)
         showToast('✅ 工单已创建')
-        refreshAll()
+        silentPoll()
       }).catch(err => {
         setSavingTicket(false)
         alert('保存失败: ' + err.message)
-        refreshAll()
+        silentPoll()
       })
     }
 
@@ -863,7 +878,7 @@ export default function Kanban() {
           document.title = originTitle.current
           setFavicon(originFaviconRef.current)
         }
-        refreshAll()
+        silentPoll()
       }
     } catch (err) {
       // 409 = 已被别人接走，提示并刷新列表
@@ -873,7 +888,7 @@ export default function Kanban() {
       } else {
         alert('接单失败: ' + err.message)
       }
-      refreshAll()
+      silentPoll()
     } finally {
       setAcceptingId(null)
     }
@@ -900,7 +915,7 @@ export default function Kanban() {
     }).then(() => {
       unlockAction(lockKey)
       showToast(`🚀 开始处理：${t.client}`)
-      refreshAll()
+      silentPoll()
     }).catch(err => {
       unlockAction(lockKey)
       alert('操作失败: ' + err.message)
@@ -936,7 +951,7 @@ export default function Kanban() {
       unlockAction(lockKey)
       unlockAction('deleting')
       alert('删除失败: ' + err.message)
-      refreshAll()
+      silentPoll()
       return
     }
     // DELETE 成功后延迟清除 deletingIdsRef，确保 poll 有时间拿到删除后的后端数据
@@ -945,8 +960,8 @@ export default function Kanban() {
       unlockAction(lockKey)
       unlockAction('deleting')
     }, 3000)
-    // 立即刷新一次，同步更新 stats
-    refreshAll()
+    // 立即静默同步一次
+    silentPoll()
   }
 
   // ===== 完成工单 =====
@@ -999,7 +1014,7 @@ export default function Kanban() {
     }).then(() => {
       unlockAction(`urgent:${ticketId}`)
       showToast('🚩 已标为需跟进')
-      refreshAll()
+      silentPoll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
       unlockAction(`urgent:${ticketId}`)
@@ -1024,7 +1039,7 @@ export default function Kanban() {
     }).then(() => {
       unlockAction(`cancelUrgent:${cancelUrgentId}`)
       showToast('✅ 已取消需跟进')
-      refreshAll()
+      silentPoll()
     }).catch(err => {
       alert('操作失败: ' + err.message)
       unlockAction(`cancelUrgent:${cancelUrgentId}`)
@@ -1100,7 +1115,7 @@ export default function Kanban() {
       setShowMemberModal(false)
       setMemberForm({ name: '', role: '全能', status: 'free', email: '', password: '' })
       showToast('✅ 组员已添加')
-      refreshAll()
+      silentPoll()
       unlockAction('saveMember')
     } catch (err) {
       unlockAction('saveMember')
@@ -1120,7 +1135,7 @@ export default function Kanban() {
         method: 'PUT',
         body: JSON.stringify({ status: next })
       })
-      refreshAll()
+      silentPoll()
       unlockAction(`toggle:${m.id}`)
     } catch (err) {
       unlockAction(`toggle:${m.id}`)
@@ -1135,7 +1150,7 @@ export default function Kanban() {
     try {
       await api(`/members/${m.id}`, { method: 'DELETE' })
       showToast(`🗑️ 已移除组员「${m.name}」`)
-      refreshAll()
+      silentPoll()
       unlockAction(`removeMember:${m.id}`)
     } catch (err) {
       unlockAction(`removeMember:${m.id}`)
@@ -1714,7 +1729,7 @@ export default function Kanban() {
               setSettings(prev => ({ ...prev, ...newSettings }))
               setShowSettingsModal(false)
               showToast('✅ 设置已保存')
-              refreshAll()
+              silentPoll()
               unlockAction('saveSettings')
             } catch (err) {
               unlockAction('saveSettings')
