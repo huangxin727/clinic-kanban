@@ -79,6 +79,49 @@ const Icon = ({ type, size = 16 }) => {
   return icons[type] || null
 }
 
+// 表头搜索筛选组件
+const ThSearchFilter = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false)
+  const inputRef = React.useRef(null)
+  const ref = React.useRef(null)
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+  return (
+    <th ref={ref} style={{ position: 'relative', userSelect: 'none' }}>
+      <span
+        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus?.(), 0) }}
+        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, borderBottom: value ? '2px solid #3b82f6' : '2px solid transparent', transition: 'border-color .15s' }}
+      >
+        <span>{value ? value : '客户'}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: value ? 1 : 0.4, flexShrink: 0 }}>
+          {open
+            ? <rect x="3" y="3" width="7" height="7" rx="1"/><line x1="15" y1="15" x2="21" y2="21"/>
+            : <polyline points="6 9 12 15 18 9"/>
+          }
+        </svg>
+      </span>
+      {value && (
+        <span onClick={e => { e.stopPropagation(); onChange('') }} style={{ marginLeft: 3, fontSize: 12, color: '#3b82f6', cursor: 'pointer', fontWeight: 700 }}>✕</span>
+      )}
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 160, background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', padding: '6px 8px' }}>
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder="搜索客户/工单号..."
+            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 13, outline: 'none' }}
+            autoFocus
+          />
+        </div>
+      )}
+    </th>
+  )
+}
+
 // 表头日期筛选组件
 const ThDateFilter = ({ value, onChange }) => {
   const inputRef = React.useRef(null)
@@ -1512,10 +1555,6 @@ export default function Kanban() {
           {/* 工单区 */}
           <div className="board">
             <div className="toolbar">
-              <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
-              {(selectedMember || filterType || filterStatus || filterDate || search) && (
-                <button className="btn-reset" onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterDate(getToday()); setSearch('') }}>↺ 重置</button>
-              )}
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
@@ -1535,7 +1574,7 @@ export default function Kanban() {
                     <table className="assigned-table" style={{ marginBottom: 12 }}>
                       <thead>
                         <tr>
-                          <th>客户</th>
+                          <ThSearchFilter value={search} onChange={v => setSearch(v)} />
                           <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
                           <th>负责人</th>
                           <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
@@ -1591,7 +1630,7 @@ export default function Kanban() {
                     <table className="assigned-table">
                       <thead>
                         <tr>
-                          <th>客户</th>
+                          <ThSearchFilter value={search} onChange={v => setSearch(v)} />
                           <ThFilter label="类型" active={!!filterType} value={filterType} onChange={v => setFilterType(v)} options={Object.entries(TYPE_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部类型" />
                           <ThFilter label="负责人" active={!!selectedMember} value={selectedMember} onChange={v => setSelectedMember(v)} options={members.map(m => ({ value: m.id, label: m.name }))} allLabel="全部组员" />
                           <ThFilter label="状态" active={!!filterStatus} value={filterStatus} onChange={v => setFilterStatus(v)} options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))} allLabel="全部状态" />
