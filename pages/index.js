@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { api, getToday, isLoggedIn, getCurrentUser, logout } from '@/lib/client'
 
