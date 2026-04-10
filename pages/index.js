@@ -470,6 +470,11 @@ export default function Kanban() {
   // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
   const remindedRef = React.useRef(new Map())
   const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
+  const [toast, setToast] = React.useState(null) // 短暂 toast 提醒
+  const showToast = React.useCallback((msg, duration = 2000) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), duration)
+  }, [])
   useEffect(() => {
     const check = () => {
       const now = Date.now()
@@ -791,6 +796,7 @@ export default function Kanban() {
           ? { ...tk, ...acceptData, member: { id: member.id, name: member.name, role: member.role, color: member.color } }
           : tk
         ))
+        showToast(`✅ 已接单：${t.client}`)
       }
     } catch (err) {
       // 409 = 已被别人接走，提示并刷新列表
@@ -1764,6 +1770,18 @@ export default function Kanban() {
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>关闭</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast 提醒 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
+          background: '#065f46', color: '#fff', padding: '10px 24px', borderRadius: 10,
+          fontSize: 14, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          animation: 'slideInRight 0.3s ease-out',
+        }}>
+          {toast}
         </div>
       )}
 

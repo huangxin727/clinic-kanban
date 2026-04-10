@@ -66,21 +66,12 @@ export default async function handler(req, res) {
     // 先查旧数据，判断是否需要记录完成时间
     const oldTicket = await findById(KEYS.TICKETS, id)
 
-    // 接单幂等校验：用分布式锁 + 优先级抢占
+    // 接单幂等校验：用分布式锁（先到先得）
     const isAccepting = updates.member_id && updates.status === 'inprogress'
     if (isAccepting) {
-      if (oldTicket && oldTicket.member_id && oldTicket.member_id !== updates.member_id) {
-        // 已被别人接走，尝试用优先级抢锁
-        const lockResult = await tryAcquireAcceptLock(id, updates.member_id, member.is_admin)
-        if (!lockResult.winner) {
-          return res.status(409).json({ error: '该工单已被其他人接走' })
-        }
-      } else if (!oldTicket || !oldTicket.member_id) {
-        // 工单未被接，走锁机制防并发
-        const lockResult = await tryAcquireAcceptLock(id, updates.member_id, member.is_admin)
-        if (!lockResult.winner) {
-          return res.status(409).json({ error: '该工单已被其他人接走' })
-        }
+      const lockResult = await tryAcquireAcceptLock(id, updates.member_id)
+      if (!lockResult.winner) {
+        return res.status(409).json({ error: '该工单已被其他人接走' })
       }
     }
 
