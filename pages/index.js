@@ -487,8 +487,9 @@ export default function Kanban() {
     }
   }, [tickets])
 
-  // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
+  // 预约时间提醒：距预约时间≤20分钟且未接单 / 已接单未开始处理
   const remindedRef = React.useRef(new Map())
+  const urgedRef = React.useRef(new Map()) // 已催促处理的记录（防重复提醒）
   const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
   const [toast, setToast] = React.useState(null) // 短暂 toast 提醒
   const showToast = React.useCallback((msg, duration = 2000) => {
@@ -500,11 +501,13 @@ export default function Kanban() {
       const now = Date.now()
       const newAlerts = []
       tickets.forEach(t => {
-        if (!t.deadline || t.member_id) return // 有负责人=已接单，跳过
+        if (!t.deadline) return
         if (t.status === 'done') return
         const dl = new Date(t.deadline).getTime()
         const diffMin = (dl - now) / 60000
-        if (diffMin <= 20 && !t.member_id && t.status !== 'done') {
+
+        // 1) 未接单工单：距预约时间≤20分钟提醒组长分配
+        if (!t.member_id && diffMin <= 20) {
           const min = Math.abs(Math.round(diffMin))
           const isOverdue = diffMin <= 0
           const msg = isOverdue
@@ -514,7 +517,7 @@ export default function Kanban() {
           const count = (remindedRef.current.get(t.id) || 0)
           if (count < 3) {
             remindedRef.current.set(t.id, count + 1)
-            newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
+            newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline, type: 'unassigned' })
             // 播放提示音
             try { if (notifyAudioRef.current) { notifyAudioRef.current.currentTime = 0; notifyAudioRef.current.play().catch(() => {}) } } catch {}
             // 桌面通知（页面最小化时也能在桌面弹出）
@@ -523,6 +526,37 @@ export default function Kanban() {
                 body: msg,
                 icon: '/favicon.ico',
                 tag: t.id + '_' + count,
+                requireInteraction: true,
+              })
+              n.onclick = () => { window.focus(); n.close() }
+            }
+            if (typeof Notification !== 'undefined') {
+              if (Notification.permission === 'granted') {
+                notify()
+              } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(p => { if (p === 'granted') notify() })
+              }
+            }
+          }
+        }
+
+        // 2) 已接单未开始处理（pending）：到了预约时间还没开始处理，催促负责人
+        // 仅当当前登录用户就是该工单负责人时弹窗
+        if (t.status === 'pending' && t.member_id && diffMin <= 0 && profile && t.member_id === profile.id) {
+          const urgedCount = (urgedRef.current.get(t.id) || 0)
+          if (urgedCount < 5) { // 最多催促5次
+            const min = Math.abs(Math.round(diffMin))
+            const msg = `【${t.client}】已超过预约时间 ${min} 分钟，请尽快开始处理！`
+            urgedRef.current.set(t.id, urgedCount + 1)
+            newAlerts.push({ id: t.id, msg, isOverdue: true, client: t.client, deadline: t.deadline, type: 'urge' })
+            // 播放提示音
+            try { if (notifyAudioRef.current) { notifyAudioRef.current.currentTime = 0; notifyAudioRef.current.play().catch(() => {}) } } catch {}
+            // 桌面通知
+            const notify = () => {
+              const n = new Notification('🚨 请尽快开始处理', {
+                body: msg,
+                icon: '/favicon.ico',
+                tag: t.id + '_urge_' + urgedCount,
                 requireInteraction: true,
               })
               n.onclick = () => { window.focus(); n.close() }
@@ -546,7 +580,7 @@ export default function Kanban() {
     check()
     const timer = setInterval(check, 120000) // 每2分钟检测一次
     return () => clearInterval(timer)
-  }, [tickets])
+  }, [tickets, profile])
 
   // 标题闪烁 + 图标闪烁：仅在页面后台时触发（Windows任务栏会自动高亮）
   const titleBlinkRef = React.useRef(null)
@@ -922,6 +956,9 @@ export default function Kanban() {
     }).then(() => {
       unlockAction(lockKey)
       setStartingId(null)
+      // 清除该工单的催促提醒
+      urgedRef.current.delete(t.id)
+      setRemindAlerts(prev => prev.filter(a => a.id !== t.id || a.type !== 'urge'))
       showToast(`🚀 开始处理：${t.client}`)
       silentPoll()
     }).catch(err => {
@@ -1989,7 +2026,7 @@ export default function Kanban() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: a.isOverdue ? '#dc2626' : '#b45309' }}>
-                  {a.isOverdue ? '🔴 已过期' : '⏰ 即将到期'}
+                  {a.type === 'urge' ? '🚨 催促处理' : (a.isOverdue ? '🔴 已过期' : '⏰ 即将到期')}
                 </span>
                 <button
                   onClick={() => setRemindAlerts(prev => prev.filter(x => !(x.id === a.id && prev.indexOf(x) === i)))}
