@@ -481,10 +481,10 @@ export default function Kanban() {
   }, [members])
 
   const [selectedMember, setSelectedMember] = useState('')
+  const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDate, setFilterDate] = useState(getToday())
   const [search, setSearch] = useState('')
-  const [searchType, setSearchType] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [clock, setClock] = useState('')
@@ -866,10 +866,7 @@ export default function Kanban() {
 
   // 过滤工单（selectedMember 不在此过滤，在 UI 层按已接单/待接单分别处理）
   const filteredTickets = tickets.filter(t => {
-    if (searchType) {
-      const label = (TYPE_MAP[t.type] || {}).label || t.type || ''
-      if (!label.toLowerCase().includes(searchType.toLowerCase())) return false
-    }
+    if (filterType && t.type !== filterType) return false
     if (filterStatus && t.status !== filterStatus) return false
     if (filterDate) {
       let ticketDate = t.ticket_date
@@ -1557,7 +1554,10 @@ export default function Kanban() {
           <div className="board">
             <div className="toolbar">
               <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
-              <input placeholder="筛选类型..." value={searchType} onChange={e => setSearchType(e.target.value)} className="search-input" style={{ width: 110 }} />
+              <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
+                <option value="">全部类型</option>
+                {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 'var(--font-sm)', color: 'var(--text)', outline: 'none', background: '#fff' }}>
                 <option value="">全部状态</option>
                 {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
