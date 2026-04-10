@@ -420,9 +420,7 @@ export default function Kanban() {
   const [selectedMember, setSelectedMember] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [filterTimeField, setFilterTimeField] = useState('')
-  const [filterTimeStart, setFilterTimeStart] = useState('')
-  const [filterTimeEnd, setFilterTimeEnd] = useState('')
+  const [filterDate, setFilterDate] = useState(getToday())
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -807,14 +805,9 @@ export default function Kanban() {
   const filteredTickets = tickets.filter(t => {
     if (filterType && t.type !== filterType) return false
     if (filterStatus && t.status !== filterStatus) return false
-    if (filterTimeField && filterTimeStart) {
-      const fieldMap = { created_at: t.created_at, completed_at: t.completed_at, deadline: t.deadline }
-      const val = fieldMap[filterTimeField]
-      if (!val) return false
-      const start = new Date(filterTimeStart).getTime()
-      const end = filterTimeEnd ? new Date(filterTimeEnd + 'T23:59:59').getTime() : start + 86400000
-      const ts = new Date(val).getTime()
-      if (ts < start || ts > end) return false
+    if (filterDate) {
+      const ticketDate = t.ticket_date || (t.created_at ? t.created_at.slice(0, 10) : '')
+      if (ticketDate !== filterDate) return false
     }
     if (search) {
       const s = search.toLowerCase()
@@ -1493,35 +1486,27 @@ export default function Kanban() {
           {/* 工单区 */}
           <div className="board">
             <div className="toolbar">
-              <select value={filterTimeField} onChange={e => setFilterTimeField(e.target.value)} title="时间筛选">
-                <option value="">时间筛选</option>
-                <option value="created_at">创建时间</option>
-                <option value="completed_at">完成时间</option>
-                <option value="deadline">预约时间</option>
-              </select>
-              {filterTimeField && (
-                <>
-                  <input type="date" value={filterTimeStart} onChange={e => setFilterTimeStart(e.target.value)} title="开始日期" />
-                  <span style={{ color: 'var(--text-muted)' }}>至</span>
-                  <input type="date" value={filterTimeEnd} onChange={e => setFilterTimeEnd(e.target.value)} title="结束日期" />
-                </>
-              )}
-              <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
-                <option value="">全部组员</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <select value={filterType} onChange={e => setFilterType(e.target.value)}>
-                <option value="">全部类型</option>
-                {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">全部状态</option>
-                {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 160 }} />
-              {(selectedMember || filterType || filterStatus || filterTimeField || filterTimeStart || search) && (
-                <button className="btn btn-sm" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }} onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterTimeField(''); setFilterTimeStart(''); setFilterTimeEnd(''); setSearch('') }}>↺ 重置筛选</button>
-              )}
+              <div className="filter-group">
+                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} title="日期筛选" />
+                <select value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
+                  <option value="">全部组员</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+                <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+                  <option value="">全部类型</option>
+                  {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                  <option value="">全部状态</option>
+                  {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </div>
+              <div className="filter-group">
+                <input placeholder="🔍 搜索客户/工单号..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
+                {(selectedMember || filterType || filterStatus || filterDate || search) && (
+                  <button className="btn-reset" onClick={() => { setSelectedMember(''); setFilterType(''); setFilterStatus(''); setFilterDate(getToday()); setSearch('') }}>↺ 重置</button>
+                )}
+              </div>
               <div className="spacer" />
               <button className="btn btn-outline" onClick={() => setShowTimelineModal(true)} title="查看时间段工作表">📅 时间表</button>
               <button className="btn btn-primary" onClick={openNewTicket}>＋ 新建工单</button>
