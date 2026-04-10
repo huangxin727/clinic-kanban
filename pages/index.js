@@ -1573,11 +1573,11 @@ export default function Kanban() {
             </div>
 
             <div className="ticket-section">
-              {/* 组员视图：只显示自己的工单 */}
+              {/* 组员视图：待接单 + 我的工单 */}
               {!isAdmin ? (
                 <div className="section-header">
-                  <span className="title">我的工单</span>
-                  <span className="badge">{filteredTickets.filter(t => t.member_id === profile.id).length}</span>
+                  <span className="title">工单列表</span>
+                  <span className="badge">{filteredTickets.filter(t => !t.member_id || t.member_id === profile.id).length}</span>
                 </div>
               ) : (
                 <div className="section-header">
@@ -1586,10 +1586,12 @@ export default function Kanban() {
                 </div>
               )}
               <div style={{ overflowX: 'auto' }}>
-                {/* 组员视图：单个表格展示自己的所有工单 */}
+                {/* 组员视图 */}
                 {!isAdmin && (() => {
+                  const unassigned = filteredTickets.filter(t => !t.member_id)
                   const myTickets = filteredTickets.filter(t => t.member_id === profile.id)
-                  return myTickets.length > 0 ? (
+                  const allMyView = [...unassigned, ...myTickets]
+                  return allMyView.length > 0 ? (
                     <table className="assigned-table">
                       <thead>
                         <tr>
@@ -1602,9 +1604,10 @@ export default function Kanban() {
                         </tr>
                       </thead>
                       <tbody>
-                        {myTickets.map(t => {
+                        {allMyView.map(t => {
                           const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                           const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
+                          const isUnassigned = !t.member_id
                           const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
                           const calcDuration = () => {
                             if (!t.created_at) return ''
@@ -1619,9 +1622,11 @@ export default function Kanban() {
                             if (hours > 0) return `${hours}时${mins}分`
                             return `${mins}分`
                           }
-                          const timeText = t.completed_at
-                            ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
-                            : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                          const timeText = isUnassigned
+                            ? <><span>{fmtDT(t.created_at)}</span></>
+                            : t.completed_at
+                              ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                              : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
                           void clock
                           const calcProcessTime = () => {
                             if (!t.started_at) return null
@@ -1636,45 +1641,55 @@ export default function Kanban() {
                             if (hours > 0) return `${hours}时${mins}分`
                             return `${mins}分`
                           }
+                          const dlTs = t.deadline ? new Date(t.deadline).getTime() : null
+                          const diffMin = dlTs ? (dlTs - Date.now()) / 60000 : null
+                          const isUrgentDl = diffMin !== null && diffMin > 0 && diffMin <= 20
+                          const isOverdue = diffMin !== null && diffMin <= 0
                           return (
-                            <tr key={t.id}>
+                            <tr key={t.id} className={isOverdue ? 'card-overdue' : isUrgentDl ? 'card-urgent' : ''}>
                               <td>
                                 <div style={{ fontWeight: 600 }}>{t.client}</div>
                                 {t.ticket_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.ticket_no}</div>}
                               </td>
                               <td><span className={`tag ${ti.cls}`}>{ti.label}</span></td>
-                              <td><span className={`tag ${si.cls}`}>{si.label}</span></td>
-                              <td style={{ fontSize: 13 }}>{timeText}</td>
-                              <td style={{ fontSize: 13, color: t.started_at ? '#2563eb' : '#9ca3af', fontWeight: t.started_at ? 600 : 400 }}>
-                                {t.started_at ? calcProcessTime() : (t.status === 'pending' ? '未开始' : '-')}
+                              <td>
+                                {isUnassigned
+                                  ? <span style={{ color: '#f59e0b', fontWeight: 500 }}>待接单</span>
+                                  : <span className={`tag ${si.cls}`}>{si.label}</span>}
+                              </td>
+                              <td style={{ fontSize: 13 }}>
+                                {timeText}
+                                {isUnassigned && t.deadline && <span className={isOverdue ? 'meta-overdue' : isUrgentDl ? 'meta-urgent' : ''} style={{ marginLeft: 6 }}>⏰{fmtDT(t.deadline)}{isOverdue && ` 已过期${Math.abs(Math.round(diffMin))}分`}{isUrgentDl && !isOverdue && ` 剩余${Math.round(diffMin)}分`}</span>}
+                              </td>
+                              <td style={{ fontSize: 13, color: !isUnassigned && t.started_at ? '#2563eb' : '#9ca3af', fontWeight: !isUnassigned && t.started_at ? 600 : 400 }}>
+                                {isUnassigned ? '-' : (t.started_at ? calcProcessTime() : (t.status === 'pending' ? '未开始' : '-'))}
                               </td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
-                                  {t.status === 'pending' && (
-                                    <button
-                                      className="btn-icon"
-                                      title={startingId === t.id ? '处理中...' : '开始处理'}
-                                      style={{ color: startingId === t.id ? '#9ca3af' : '#2563eb' }}
-                                      disabled={startingId === t.id}
-                                      onClick={(e) => { e.stopPropagation(); startTicket(t) }}
-                                    >
+                                  {isUnassigned && (
+                                    <button className="btn btn-primary btn-accept" disabled={acceptingId === t.id} onClick={() => acceptTicket(t)} style={{ fontSize: 12, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                                      {acceptingId === t.id ? '⏳ 接单中...' : '✋ 接单'}
+                                    </button>
+                                  )}
+                                  {!isUnassigned && t.status === 'pending' && (
+                                    <button className="btn-icon" title={startingId === t.id ? '处理中...' : '开始处理'} style={{ color: startingId === t.id ? '#9ca3af' : '#2563eb' }} disabled={startingId === t.id} onClick={(e) => { e.stopPropagation(); startTicket(t) }}>
                                       {startingId === t.id
                                         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                                         : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
                                     </button>
                                   )}
-                                  {t.status !== 'done' && t.status !== 'urgent' && t.status !== 'pending' && (
+                                  {!isUnassigned && t.status !== 'done' && t.status !== 'urgent' && t.status !== 'pending' && (
                                     <button className="btn-icon btn-icon-warning" title="标为需跟进" onClick={(e) => { e.stopPropagation(); openUrgentModal(t.id) }}><Icon type="flag"/></button>
                                   )}
-                                  {t.status === 'urgent' && (
+                                  {!isUnassigned && t.status === 'urgent' && (
                                     <button className="btn-icon btn-icon-warning" title="取消需跟进" onClick={(e) => { e.stopPropagation(); openCancelUrgentModal(t.id) }}><Icon type="flag"/></button>
                                   )}
-                                  {t.status !== 'done' && (
+                                  {!isUnassigned && t.status !== 'done' && (
                                     <button className="btn-icon btn-icon-success" title="完成" onClick={(e) => { e.stopPropagation(); openCompleteModal(t.id, null) }}><Icon type="check"/></button>
                                   )}
                                   <button className="btn-icon" title="详情" onClick={() => openDrawer(t.id)}><Icon type="detail"/></button>
-                                  <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>
+                                  {!isUnassigned && <button className="btn-icon btn-icon-edit" title="编辑" onClick={() => openEditTicket(t)}><Icon type="edit"/></button>}
                                 </div>
                               </td>
                             </tr>
