@@ -833,15 +833,15 @@ export default function Kanban() {
   // 兜底 15 秒强制全量刷新（防止极端情况遗漏）
   const lastTsRef = useRef('0')
 
-  // 静默 poll：操作后触发一次 poll 拉取最新 ts，让定时 poll 自然同步
-  // 不直接 setTickets/setMembers，避免全量数据覆盖导致页面闪烁
+  // 静默 poll：操作后触发一次 poll 拉取最新数据，静默更新 tickets/members
+  // 不显示 loading，避免页面闪烁
   const silentPoll = useCallback(async () => {
     try {
       const res = await api('/poll?ts=0')
-      if (res.success && res.ts) {
-        // 将 lastTsRef 设为 ts-1，这样下一次定时 poll 还能检测到变更
-        // 避免 ts=latest 导致定时 poll 认为 changed=false 跳过更新
-        lastTsRef.current = (parseInt(res.ts) - 1).toString()
+      if (res.success) {
+        lastTsRef.current = res.ts || lastTsRef.current
+        if (res.tickets) safeSetTickets(res.tickets)
+        if (res.members) safeSetMembers(res.members)
       }
     } catch {}
   }, [])
