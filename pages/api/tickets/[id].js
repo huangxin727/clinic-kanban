@@ -89,19 +89,20 @@ export default async function handler(req, res) {
     const data = await updateById(KEYS.TICKETS, id, updates)
     if (!data) return res.status(404).json({ error: '工单不存在' })
 
+    // 确保时间戳在数据写入后立即更新（阻塞），保证 poll 检测到变更时数据已一致
+    await touchUpdate()
+
     // 构造响应数据（不需要再次读 members，因为 member 信息在请求上下文中已有）
     const needBusy = updates.member_id && (updates.status === 'inprogress' || (!updates.status && data.status === 'inprogress'))
     const needFree = updates.status === 'done'
 
-    // touchUpdate + 状态管理全部 fire-and-forget，不阻塞响应
     // 接单时用请求者自身的 member 信息构造响应
     const respMember = needBusy
       ? { id: member.id, name: member.name, role: member.role, color: member.color }
       : null
 
-    // 后台任务：touchUpdate + autoSetBusy/SetFree（不阻塞响应）
+    // 后台任务：autoSetBusy/SetFree/releaseLock（不阻塞响应）
     Promise.all([
-      touchUpdate(),
       needBusy ? autoSetBusy(updates.member_id) : null,
       needFree ? autoSetFree(data.member_id) : null,
       isAccepting ? releaseAcceptLock(id) : null,

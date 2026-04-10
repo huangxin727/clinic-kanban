@@ -828,19 +828,20 @@ export default function Kanban() {
   }
 
   // ===== 开始处理 =====
-  const startTicket = async (t) => {
+  const startTicket = (t) => {
     const now = new Date().toISOString()
     const updates = { status: 'inprogress', started_at: now }
-    try {
-      await api(`/tickets/${t.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      })
-      setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, ...updates } : tk))
-      showToast(`🚀 开始处理：${t.client}`)
-    } catch (err) {
+    // 乐观更新：立即更新本地状态
+    setTickets(prev => prev.map(tk => tk.id === t.id ? { ...tk, ...updates } : tk))
+    showToast(`🚀 开始处理：${t.client}`)
+    // 后台异步提交，失败回滚
+    api(`/tickets/${t.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    }).catch(err => {
       alert('操作失败: ' + err.message)
-    }
+      refreshAll()
+    })
   }
 
   const deleteTicket = async (id) => {
@@ -1408,8 +1409,10 @@ export default function Kanban() {
                           const timeText = t.completed_at
                             ? <><span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
                             : <><span>{fmtDT(t.created_at)}</span> <span style={{ color: '#6b7280' }}>· {calcDuration()}</span></>
+                          // 依赖 clock 确保每秒刷新处理时间
                           const calcProcessTime = () => {
                             if (!t.started_at) return null
+                            void clock // 强制依赖 clock，每秒触发重算
                             const start = new Date(t.started_at).getTime()
                             const end = t.completed_at ? new Date(t.completed_at).getTime() : Date.now()
                             const diffMs = end - start
