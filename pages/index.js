@@ -1682,6 +1682,7 @@ export default function Kanban() {
                           <th>预约时间</th>
                           <th>接单时间</th>
                           <th>处理时间</th>
+                          <th>完成时间</th>
                           <th>备注</th>
                           <th>操作</th>
                         </tr>
@@ -1722,8 +1723,12 @@ export default function Kanban() {
                             return `${mins}分`
                           }
                           const processCell = t.started_at
-                            ? <><span style={{ color: '#2563eb' }}>{fmtDT(t.started_at)}</span> <span style={{ color: '#6b7280', fontSize: 12 }}>· {calcProcessTime()}</span></>
+                            ? <span style={{ color: '#2563eb', fontWeight: 500 }}>{calcProcessTime()}</span>
                             : <span style={{ color: t.status === 'pending' ? '#f59e0b' : '#9ca3af', fontWeight: t.status === 'pending' ? 600 : 400 }}>{t.status === 'pending' ? '未开始' : '-'}</span>
+                          // 完成时间列
+                          const completeCell = t.completed_at
+                            ? <span style={{ color: '#16a34a' }}>{fmtDT(t.completed_at)}</span>
+                            : <span style={{ color: '#9ca3af' }}>-</span>
                           // 行样式：到预约时间未完成标红
                           const rowCls = isDlOverdue ? 'card-overdue' : isDlUrgent ? 'card-urgent' : ''
                           return (
@@ -1743,6 +1748,7 @@ export default function Kanban() {
                               <td style={{ fontSize: 13 }}>{deadlineCell}</td>
                               <td style={{ fontSize: 13 }}>{acceptCell}</td>
                               <td style={{ fontSize: 13 }}>{processCell}</td>
+                              <td style={{ fontSize: 13 }}>{completeCell}</td>
                               <td style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }} title={t.note || ''}>{t.note || '-'}</td>
                               <td>
                                 <div className="action-group">
