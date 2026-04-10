@@ -424,7 +424,7 @@ export default function Kanban() {
   }, [])
 
   // 预约时间提醒：距预约时间≤20分钟且未接单，每分钟检测一次
-  const remindedRef = React.useRef(new Set())
+  const remindedRef = React.useRef(new Map())
   const [remindAlerts, setRemindAlerts] = React.useState([]) // 页面内提醒弹窗队列
   useEffect(() => {
     const check = () => {
@@ -435,32 +435,35 @@ export default function Kanban() {
         if (t.status === 'done') return
         const dl = new Date(t.deadline).getTime()
         const diffMin = (dl - now) / 60000
-        if (diffMin <= 20 && !remindedRef.current.has(t.id)) {
-          remindedRef.current.add(t.id)
+        if (diffMin <= 20 && !t.member_id && t.status !== 'done') {
           const min = Math.abs(Math.round(diffMin))
           const isOverdue = diffMin <= 0
           const msg = isOverdue
             ? `【${t.client}】预约时间已过期 ${min} 分钟，尚未有人接单！`
             : `【${t.client}】预约时间还有 ${min} 分钟，尚未有人接单！`
-          newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
-          // 播放提示音
-          try { new Audio('/notify.wav').play().catch(() => {}) } catch {}
-          // 桌面通知（页面最小化时也能在桌面弹出）
-          const notify = () => {
-            const n = new Notification('⏰ 工单待接单提醒', {
-              body: msg,
-              icon: '/favicon.ico',
-              tag: t.id,
-              requireInteraction: true,
-            })
-            // 点击通知 → 聚焦窗口并打开看板
-            n.onclick = () => { window.focus(); n.close() }
-          }
-          if (typeof Notification !== 'undefined') {
-            if (Notification.permission === 'granted') {
-              notify()
-            } else if (Notification.permission !== 'denied') {
-              Notification.requestPermission().then(p => { if (p === 'granted') notify() })
+          // 每个工单最多提醒3次
+          const count = (remindedRef.current.get(t.id) || 0)
+          if (count < 3) {
+            remindedRef.current.set(t.id, count + 1)
+            newAlerts.push({ id: t.id, msg, isOverdue, client: t.client, deadline: t.deadline })
+            // 播放提示音
+            try { new Audio('/notify.wav').play().catch(() => {}) } catch {}
+            // 桌面通知（页面最小化时也能在桌面弹出）
+            const notify = () => {
+              const n = new Notification('⏰ 工单待接单提醒', {
+                body: msg,
+                icon: '/favicon.ico',
+                tag: t.id + '_' + count,
+                requireInteraction: true,
+              })
+              n.onclick = () => { window.focus(); n.close() }
+            }
+            if (typeof Notification !== 'undefined') {
+              if (Notification.permission === 'granted') {
+                notify()
+              } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(p => { if (p === 'granted') notify() })
+              }
             }
           }
         }
@@ -472,7 +475,7 @@ export default function Kanban() {
       }
     }
     check()
-    const timer = setInterval(check, 60000)
+    const timer = setInterval(check, 120000) // 每2分钟检测一次
     return () => clearInterval(timer)
   }, [tickets])
 
