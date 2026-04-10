@@ -366,7 +366,7 @@ export default function Kanban() {
     tickets: dateTickets.filter(t => t.member_id === m.id)
   })), [members, dateTickets])
 
-  // member id → member 对象映射，渲染时从 members state 实时查找，不依赖 ticket.member
+  // member id → member 对象映射
   const memberMap = useMemo(() => {
     const map = {}
     members.forEach(m => { map[m.id] = m })
@@ -876,7 +876,7 @@ export default function Kanban() {
       // 但如果有删除中的工单，跳过 same 检测，确保数据同步
       if (result === prev) return prev
       if (delSet.size > 0 || result.length !== prev.length) return result
-      // 长度相同时按 id 集合比较（更可靠，不受排序影响）
+      // 长度相同时按关键字段比较
       if (result.length === prev.length) {
         let same = true
         for (let i = 0; i < result.length; i++) {
@@ -1566,7 +1566,7 @@ export default function Kanban() {
                       </thead>
                       <tbody>
                         {assigned.map(t => {
-                          const m = memberMap[t.member_id] || {}
+                          const m = t.member || memberMap[t.member_id] || {}
                           const ti = TYPE_MAP[t.type] || { label: t.type, cls: 'tag-other' }
                           const si = STATUS_MAP[t.status] || { label: t.status, cls: 'tag-pending' }
                           const fmtDT = (iso) => { if (!iso) return '-'; const d = new Date(iso); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}` }
@@ -1916,7 +1916,7 @@ export default function Kanban() {
               <div className="dg-item"><span className="dg-label">工单号</span><span className="dg-value">{drawerTicket.ticket_no || '-'}</span></div>
               <div className="dg-item"><span className="dg-label">客户</span><span className="dg-value" style={{ fontWeight: 700 }}>{drawerTicket.client}</span></div>
               <div className="dg-item"><span className="dg-label">类型</span><span className="dg-value"><span className={`tag ${TYPE_MAP[drawerTicket.type]?.cls || 'tag-other'}`}>{TYPE_MAP[drawerTicket.type]?.label || drawerTicket.type}</span></span></div>
-              <div className="dg-item"><span className="dg-label">负责人</span><span className="dg-value">{memberMap[drawerTicket.member_id]?.name || '未分配'}</span></div>
+              <div className="dg-item"><span className="dg-label">负责人</span><span className="dg-value">{drawerTicket.member?.name || memberMap[drawerTicket.member_id]?.name || '未分配'}</span></div>
               <div className="dg-item"><span className="dg-label">状态</span><span className="dg-value"><span className={`tag ${STATUS_MAP[drawerTicket.status]?.cls || 'tag-pending'}`}>{STATUS_MAP[drawerTicket.status]?.label || drawerTicket.status}</span></span></div>
               <div className="dg-item"><span className="dg-label">预约时间</span><span className="dg-value">{drawerTicket.deadline ? new Date(drawerTicket.deadline).toLocaleString('zh-CN') : '未设置'}</span></div>
               <div className="dg-item"><span className="dg-label">诊所编码</span><span className="dg-value">{drawerTicket.clinic_code || '未填写'}</span></div>
