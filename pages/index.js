@@ -806,7 +806,11 @@ export default function Kanban() {
     if (filterType && t.type !== filterType) return false
     if (filterStatus && t.status !== filterStatus) return false
     if (filterDate) {
-      const ticketDate = t.ticket_date || (t.created_at ? t.created_at.slice(0, 10) : '')
+      let ticketDate = t.ticket_date
+      if (!ticketDate && t.created_at) {
+        const d = new Date(t.created_at)
+        ticketDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      }
       if (ticketDate !== filterDate) return false
     }
     if (search) {
